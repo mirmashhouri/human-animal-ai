@@ -1,14 +1,14 @@
 # WildLens
 
-A Meta AI hackathon adaptation of the existing Kinform app. Upload a photo, explore a visual interpretation and color palette, then create an animal-inspired portrait and keep the image and visual story.
+A Meta AI hackathon adaptation of the existing Kinform app. Upload a portrait and choose **Create my animal** once. See the original and animal side by side, with colors and the visual story below.
 
 ## Pipeline
 
 1. Expo/React resizes the upload to a bounded JPEG and samples whole-image colors locally in the browser.
-2. Muse Spark 1.3 produces structured observations of pose, composition and an artistic animal suggestion. SAM 3.1 optionally segments the subject in parallel.
+2. One Create action starts the full pipeline. Muse Spark 1.3 produces structured observations of pose, composition, colors and an artistic animal suggestion. SAM 3.1 segments the subject in parallel on the web.
 3. The official `@meta-sam/parser` decodes SAM's actual mask. The browser creates a transparent subject reference. If several subjects are returned, the largest bounding region is selected and the interface says so.
-4. After the user reviews the direction, Muse Image 1.0 receives the original portrait and optional isolated reference, plus the selected animal, style, palette and atmosphere.
-5. The studio displays the portrait, palette and visual story. Browser export downloads the PNG and a JSON story; native export uses the device share sheet.
+4. Muse Image 1.0 receives the original portrait and isolated reference, with the animal suggestion, pose, composition and palette. Painterly / Dreamlike defaults are internal; there are no direction controls.
+5. Human and animal appear side by side, including on mobile. The animal explanation, palette and visual story appear below. Browser export downloads one PNG; native export uses the device share sheet.
 
 The backend remains ASP.NET Core 10, reusing the working project instead of rewriting it in Python. The inherited Kinform source is preserved, but the entry point is now `apps/mobile/WildLensApp.tsx`. Its old OpenAI routes stay in demo mode and are not used by WildLens. Original project notes are archived under `docs/KINFORM-*`.
 
@@ -45,7 +45,7 @@ AI_ENABLE_PAID_REQUESTS=false
 
 Alternatively, the first setup accepts `-CreditConfirmed -EnablePaidRequests` if you have already verified billing. Never put the key in `EXPO_PUBLIC_*`. Credentials were not copied from `idea`, and no key shared in chat was reused. Configuration names also accept host environment variables. Backend `.env` is Development-only.
 
-One Analyze action makes one Spark request and, when isolation is enabled, one SAM request. Each Create action makes one image-edit request. Repeating an action can incur another charge. No automatic retries are made; stopping a browser request cannot guarantee cancellation of work already accepted by Meta. Credit confirmation is a local declaration, not an automated balance check. The prototype's request/concurrency limits are not a dollar spending cap.
+Selecting a photo does not upload it to Meta. Choosing Create confirms permission and makes one Spark request, one SAM request on web, and one image-edit request, with no intermediate action required. Repeating Create can incur another charge. No automatic retries are made; Stop prevents subsequent stages but cannot guarantee cancellation of work already accepted by Meta. Credit confirmation is a local declaration, not an automated balance check. The prototype's request/concurrency limits are not a dollar spending cap.
 
 ## Muse Code
 
@@ -53,7 +53,7 @@ Muse Code is a development assistant, separate from the runtime image pipeline. 
 
 ## Output quality and training
 
-The first quality improvements are original-photo editing, real mask conditioning, measured colors, strict analysis output, user-adjustable animal/style/atmosphere and versioned prompts. These are implemented techniques, not a claim of measured quality gains.
+Matching and generation have been restored exactly from pushed commit `8afa99262b660ad2002353f6ad5a029927542d88`, using `wildlens-art-direction-v1`. The later continuity-v2 and structure-first-v3 matching/generation changes were reverted. Original-photo editing, real mask conditioning, measured colors and the pushed analysis/image prompts are retained. No measured quality improvement is claimed. The one-click interface and side-by-side comparison remain.
 
 Use [the evaluation workflow](evaluation/README.md) to compare results on a consented, varied photo set. `npm run evaluate -- evaluation/private/reviews.jsonl` summarizes human scores without making API calls. No custom training or fine-tuning has been run; a training decision needs suitable data, a supported model and a measured baseline.
 
@@ -71,7 +71,7 @@ npm run web:build
 
 ## Current scope
 
-- Browser studio is the primary verified experience. Native image picking/sharing is retained, but pixel-mask extraction is browser-only; native users can turn isolation off. Native device builds are not yet verified.
+- Browser studio is the primary verified experience. Native image picking/sharing is retained; pixel-mask extraction runs on web and is skipped automatically on native. Native device builds are not yet verified.
 - Colors and animal similarities are creative directions. The app does not identify people, infer personality or diagnose emotion from appearance.
 - Portraits/results are not persisted by the backend. The browser holds the current session; original uploads, resized photos and provider-side handling remain subject to their respective storage/retention behavior. Provider zero retention is not promised.
 - Signed analysis tickets are bound to the photo and expire after 15 minutes or a server restart. The server is restricted to local access by default.

@@ -27,20 +27,15 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
         promptVersion: inspection.promptVersion, notice: 'Saved real Meta artwork replayed without another model request.' } });
     });
     await page.goto('http://localhost:8093', { waitUntil: 'networkidle' });
-    await page.getByRole('button', { name: 'Photo subject: animal', exact: true }).click();
     const chooserEvent = page.waitForEvent('filechooser');
     await page.getByRole('button', { name: 'Upload photo', exact: true }).click();
     const chooser = await chooserEvent;
     await chooser.setFiles(path.join(root, 'apps/mobile/assets/photos/red-fox.jpg'));
     await page.getByRole('img', { name: 'Your uploaded photo', exact: true }).waitFor();
-    await page.getByRole('checkbox').click();
-    await page.getByRole('button', { name: 'Analyze my photo', exact: true }).click();
-    await page.getByRole('img', { name: 'Subject isolated by SAM', exact: true }).waitFor();
-    await page.getByRole('button', { name: 'Create my wild portrait', exact: true }).click();
-    await page.getByRole('button', { name: 'Keep my artwork', exact: true }).waitFor();
-    await page.getByRole('button', { name: 'Keep my artwork', exact: true }).scrollIntoViewIfNeeded?.();
-    await page.getByRole('heading', { name: inspection.analysis.title, exact: true }).scrollIntoViewIfNeeded();
-    await page.screenshot({ path: path.join(output, 'wildlens-real-meta-result.png') });
+    await page.getByRole('button', { name: 'Create my animal', exact: true }).click();
+    await page.getByRole('button', { name: 'Save my animal', exact: true }).waitFor();
+    await page.getByTestId('portrait-comparison').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(output, 'wildlens-real-meta-result-minimal.png') });
     assert.ok(cutoutBytes > 1000); assert.deepEqual(errors, []);
     console.log(JSON.stringify({ status: 'passed', mode: 'saved-real-response-replay', realMaskCutoutBytes: cutoutBytes,
       artworkDecoded: true, pageErrors: errors, additionalMetaCalls: 0 }, null, 2));

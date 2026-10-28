@@ -11,10 +11,10 @@ export function readSubjectMask(text: string) {
   const parser = formats.segmentation.image().createParser();
   parser.push(text);
   const { result } = parser.finish({ status: 'completed' });
-  if (result.diagnostics.some(d => d.severity === 'error')) throw new Error('SAM returned an incomplete mask. Try another photo or turn isolation off.');
+  if (result.diagnostics.some(d => d.severity === 'error')) throw new Error('The subject could not be isolated clearly. Choose a clearer portrait and try again.');
   const masks = [...recordsOfKind(result.records, 'mask')];
   masks.sort((a, b) => (b.bounds.right - b.bounds.left) * (b.bounds.bottom - b.bounds.top) - (a.bounds.right - a.bounds.left) * (a.bounds.bottom - a.bounds.top));
   const selected = masks[0];
-  if (!selected) throw new Error('SAM found no subject. Try a clearer photo or turn isolation off.');
+  if (!selected) throw new Error('No clear subject was found. Choose a portrait with one visible person.');
   return { record: selected, raster: decodeMaskToRaster(selected.mask), count: masks.length };
 }

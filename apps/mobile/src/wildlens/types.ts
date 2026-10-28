@@ -5,6 +5,10 @@ export type StudioConfig = {
 export type Direction = {
   subjectVisible: boolean; title: string; pose: string; composition: string;
   animalName: string; animalReason: string; story: string; palette: string[];
+  signature?: { feature: string; observation: string; animalTranslation: string; visibility: 'clear' | 'uncertain'; priority: number }[] | null;
+  expression?: string | null; atmosphere?: string | null;
+  faceProfile?: { subjectVisible: boolean; outline: string; lengthWidth: string; cheekJaw: string; eyes: string; noseMouth: string; lengthClass: string } | null;
+  candidates?: { name: string; outlineFit: number; lengthFit: number; eyeFit: number; noseMouthFit: number; majorMismatch: boolean; naturalLengthClass: string; comparison: string; mismatch: string }[] | null;
 };
 export type Inspection = {
   ticket: string; analysis: Direction; segmentationText: string;
