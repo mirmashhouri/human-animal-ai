@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+const origin = process.env.KINFORM_TEST_API ?? 'http://localhost:5078';
+const health = await fetch(`${origin}/health`).then(r => r.json());
+assert.equal(health.status, 'ok');
+const config = await fetch(`${origin}/api/config`).then(r => r.json());
+assert.equal(config.mode, 'demo', 'Integration tests refuse to send photographs to a live AI provider.');
+const jpeg = await readFile(new URL('../apps/mobile/assets/photos/red-fox.jpg', import.meta.url));
+const post = body => fetch(`${origin}/api/matches`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+const denied = await post({ consent: false, imageBase64: jpeg.toString('base64') });
+assert.equal(denied.status, 400); assert.equal((await denied.json()).code, 'consent_required');
+const invalid = await post({ consent: true, imageBase64: 'bad' });
+assert.equal(invalid.status, 422);
+const valid = await post({ consent: true, imageBase64: jpeg.toString('base64') });
+assert.equal(valid.status, 200);
+assert.equal(valid.headers.get('cache-control'), 'no-store');
+const result = await valid.json();
+assert.equal(result.isDemo, true); assert.equal(result.matches.length, 3);
+for (const match of result.matches) {
+  const image = await fetch(`${origin}${match.animal.imagePath}`);
+  assert.equal(image.status, 200); assert.equal(image.headers.get('content-type'), 'image/jpeg');
+}
+const hybrid = await fetch(`${origin}/api/hybrids`, { method: 'POST' });
+assert.equal(hybrid.status, 501);
+const unknown = await fetch(`${origin}/api/missing`);
+assert.equal(unknown.status, 404);
+const statuses = [];
+for (let i = 0; i < 10; i++) statuses.push((await post({ consent: false, imageBase64: '' })).status);
+assert.ok(statuses.includes(429), 'Expected global prototype rate limit to reject excess requests');
+console.log('API integration passed: health, consent, invalid input, real image delivery, demo labels, disabled hybrid, cache headers, 404, rate limit. No AI calls.');

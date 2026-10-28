@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "WildLens",
+    "slug": "wildlens",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "wildlens",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.wildlens"
+    },
+    "android": {
+      "package": "com.example.wildlens",
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "name": "WildLens — through the wild"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose a portrait to inspire your animal character.",
+          "cameraPermission": "Take a portrait to inspire your animal character.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-sharing",
+      "expo-asset"
+    ]
+  }
+}

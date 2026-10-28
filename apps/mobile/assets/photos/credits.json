@@ -1,0 +1,54 @@
+[
+  {
+    "id": "red-fox",
+    "title": "Vulpes vulpes (44561825982).jpg",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Vulpes_vulpes_(44561825982).jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c0/Vulpes_vulpes_%2844561825982%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "downloadedUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c0/Vulpes_vulpes_%2844561825982%29.jpg/960px-Vulpes_vulpes_%2844561825982%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "authorHtml": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/132328696@N07\">Tomek Niedzwiedz</a> from Poznań, Poland",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "modified": "Resized by Wikimedia; app displays cropped views.",
+    "use": "Development catalogue reference",
+    "checked": "2026-09-06"
+  },
+  {
+    "id": "caracal",
+    "title": "Caracal001.jpg",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Caracal001.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/a/a5/Caracal001.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "downloadedUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a5/Caracal001.jpg/960px-Caracal001.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "authorHtml": "<a rel=\"nofollow\" class=\"external text\" href=\"https://www.flickr.com/people/23566085@N00\">€ Van 3000</a> from belgium belgikske belgiquistan - United Tribes ov Europe",
+    "license": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+    "modified": "Resized by Wikimedia; app displays cropped views.",
+    "use": "Development catalogue reference",
+    "checked": "2026-09-06"
+  },
+  {
+    "id": "eagle-owl",
+    "title": "Bubo bubo 1 (Martin Mecnarowski).jpg",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Bubo_bubo_1_(Martin_Mecnarowski).jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/c/ca/Bubo_bubo_1_%28Martin_Mecnarowski%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "downloadedUrl": "https://upload.wikimedia.org/wikipedia/commons/c/ca/Bubo_bubo_1_%28Martin_Mecnarowski%29.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
+    "authorHtml": "<a href=\"//commons.wikimedia.org/wiki/User:Trachemys~commonswiki/Martin_Mecnarowski\" title=\"User:Trachemys~commonswiki/Martin Mecnarowski\">Martin Mecnarowski</a> (<a rel=\"nofollow\" class=\"external free\" href=\"http://www.photomecan.eu/\">http://www.photomecan.eu/</a>)",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "modified": "Resized by Wikimedia; app displays cropped views.",
+    "use": "Development catalogue reference",
+    "checked": "2026-09-06"
+  },
+  {
+    "id": "sample-portrait",
+    "title": "Woman's close portrait, 3096664.jpg",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Woman%27s_close_portrait,_3096664.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/7/70/Woman%27s_close_portrait%2C_3096664.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=original",
+    "downloadedUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/70/Woman%27s_close_portrait%2C_3096664.jpg/960px-Woman%27s_close_portrait%2C_3096664.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "authorHtml": "<a rel=\"nofollow\" class=\"external text\" href=\"https://pixabay.com/en/users/Gromovataya-913352/\">Gromovataya</a>",
+    "license": "CC0",
+    "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+    "modified": "Resized by Wikimedia; app displays cropped views.",
+    "use": "Local demo only; not submitted to AI or used for endorsement.",
+    "checked": "2026-09-06"
+  }
+]

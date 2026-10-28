@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Remove=".env;.env.*" />
+    <None Remove=".env;.env.*" />
+    <None Include=".env.example" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+    <Content Include="../../data/animals.json" Link="Data/animals.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../apps/mobile/assets/photos/red-fox.jpg" Link="wwwroot/animals/red-fox.jpg" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../apps/mobile/assets/photos/caracal.jpg" Link="wwwroot/animals/caracal.jpg" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../apps/mobile/assets/photos/eagle-owl.jpg" Link="wwwroot/animals/eagle-owl.jpg" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

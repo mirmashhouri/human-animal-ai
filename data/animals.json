@@ -1,0 +1,41 @@
+[
+  {
+    "id": "red-fox",
+    "name": "Red fox",
+    "scientificName": "Vulpes vulpes",
+    "family": "Canidae",
+    "description": "A tapered muzzle, pointed ears and a finely outlined face.",
+    "traits": ["Tapered outline", "Pointed ears", "Narrow muzzle"],
+    "photoCredit": "Tomek Niedzwiedz · CC0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Vulpes_vulpes_(44561825982).jpg",
+    "imagePath": "/animals/red-fox.jpg",
+    "hybridEligible": false
+  },
+  {
+    "id": "caracal",
+    "name": "Caracal",
+    "scientificName": "Caracal caracal",
+    "family": "Felidae",
+    "description": "A compact feline face, pronounced cheek outline and tufted ears.",
+    "traits": ["Cheek outline", "Tufted ears", "Compact muzzle"],
+    "photoCredit": "Eddy Van 3000 · CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Caracal001.jpg",
+    "imagePath": "/animals/caracal.jpg",
+    "hybridEligible": false
+  },
+  {
+    "id": "eagle-owl",
+    "name": "Eurasian eagle-owl",
+    "scientificName": "Bubo bubo",
+    "family": "Strigidae",
+    "description": "Forward-facing eyes framed by a broad, feathered facial outline.",
+    "traits": ["Forward-facing eyes", "Broad outline", "Feathered brow"],
+    "photoCredit": "Martin Mecnarowski · CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:Bubo_bubo_1_(Martin_Mecnarowski).jpg",
+    "imagePath": "/animals/eagle-owl.jpg",
+    "hybridEligible": false
+  }
+]

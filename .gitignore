@@ -1,0 +1,16 @@
+node_modules/
+.expo/
+dist/
+bin/
+obj/
+.cache/
+.artifacts/
+.env
+.env.local
+.env.*.local
+*.user
+*.suo
+App_Data/
+artifacts/
+evaluation/private/
+!**/.env.example
