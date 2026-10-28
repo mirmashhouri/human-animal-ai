@@ -117,12 +117,12 @@ export function WildLensStudio() {
     <View style={[s.hero, complete && { paddingVertical: 27 }]}><Text style={s.eyebrow}>{complete ? (demo ? 'LOCAL LAYOUT DEMO' : 'YOUR WILD PERSPECTIVE') : 'A DIFFERENT KIND OF SELF-PORTRAIT'}</Text>
       <Text accessibilityRole="header" style={[s.headline, { fontSize: width < 600 ? 36 : 48 }]}>{complete ? 'A little human. A little wild.' : 'Your portrait, a little wilder.'}</Text>
       {!complete ? <Text style={s.intro}>One photo. One click. An animal portrait with the details that make it yours.</Text> : null}</View>
-    {showProcess ? <View style={s.process}><Text style={s.body}>Upload a clear portrait, then choose Create my animal. Muse Spark interprets visible shapes, pose and colors, and Muse Image creates an animal-inspired portrait from your original photo.</Text>
+    {showProcess ? <View style={s.process}><Text style={s.body}>Upload a clear photo, then choose Create my animal. Each clear face gets its own animal inspiration. Muse Image creates one portrait, keeping your group together in the same positions.</Text>
       <Text style={s.caption}>Powered by Meta’s Muse Spark, SAM and Muse Image. Your photo is sent for processing only when you choose to generate.</Text></View> : null}
     {!complete ? <View style={s.uploadPanel}>
       <Pressable disabled={busy} accessibilityRole="button" accessibilityLabel={photo ? 'Change your photo' : 'Upload a photo'} onPress={() => void choosePhoto()} style={[s.photoWell, photo && { borderStyle: 'solid' }]}>
         {photo ? <Image source={{ uri: photo.uri }} accessibilityLabel="Your uploaded photo" style={s.preview} resizeMode="contain" /> : <View style={s.empty}>
-          <View style={s.uploadIcon}><Ionicons name="scan-outline" size={34} color="#315e44" /></View><Text style={s.uploadTitle}>Start with you.</Text><Text style={[s.body, { textAlign: 'center' }]}>A clear portrait. Good light. Just you.</Text>
+          <View style={s.uploadIcon}><Ionicons name="scan-outline" size={34} color="#315e44" /></View><Text style={s.uploadTitle}>Start with you.</Text><Text style={[s.body, { textAlign: 'center' }]}>Good light. Clear faces. Solo or together.</Text>
           <View style={s.uploadPill}><Ionicons name="add" size={17} color="#315e44" /><Text style={s.link}>Choose a photo</Text></View><Text style={s.caption}>JPG or PNG · up to 15 MB</Text></View>}
       </Pressable>
       <View style={s.photoActions}><Pressable accessibilityRole="button" accessibilityLabel={photo ? 'Change photo' : 'Upload photo'} disabled={busy} onPress={() => void choosePhoto()}><Text style={s.link}>{photo ? 'Change photo' : 'Upload photo'}</Text></Pressable>

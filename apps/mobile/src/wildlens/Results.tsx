@@ -8,24 +8,28 @@ export function PortraitResults({ photo, inspection, artwork, demo, onLoad, onEr
 }) {
   const { width } = useWindowDimensions();
   const { analysis } = inspection;
+  const subjects = analysis.groupPhoto ? analysis.subjects ?? [] : [];
   const signature = (analysis.signature ?? []).filter(feature => feature.visibility === 'clear')
     .slice().sort((a, b) => b.priority - a.priority).slice(0, 4);
   return <View style={s.result}>
     <View testID="portrait-comparison" style={s.comparison}>
       <View testID="original-portrait-column" style={s.imageColumn}>
         <Image source={{ uri: photo.uri }} style={s.image} resizeMode="contain" accessibilityLabel={demo ? 'Demo original portrait' : 'Your original portrait'} />
-        <View style={s.imageCaption}><Text style={s.label}>You</Text><Text style={s.caption}>{demo ? 'Sample photograph' : 'The original portrait'}</Text></View>
+        <View style={s.imageCaption}><Text style={s.label}>{analysis.groupPhoto ? 'Your group' : 'You'}</Text><Text style={s.caption}>{demo ? 'Sample photograph' : 'The original photo'}</Text></View>
       </View>
       <View testID="animal-portrait-column" style={s.imageColumn}>
         <Image key={artwork.image} source={{ uri: artwork.image }} style={s.image} resizeMode="contain" onLoad={onLoad} onError={onError}
           accessibilityLabel={demo ? 'Demo animal reference, not generated' : 'Your animal portrait'} />
-        <View style={s.imageCaption}><Text style={s.label}>{analysis.animalName}</Text><Text style={s.caption}>{demo ? 'Reference photo · layout demo' : 'Your animal-inspired portrait'}</Text></View>
+        <View style={s.imageCaption}><Text style={s.label}>{analysis.groupPhoto ? 'Your animals' : analysis.animalName}</Text><Text style={s.caption}>{demo ? 'Reference photo · layout demo' : 'Your animal-inspired portrait'}</Text></View>
       </View>
     </View>
     <View testID="portrait-details" style={s.details}>
       <View style={s.reason}>
-        <Text style={s.eyebrow}>WHY THIS ANIMAL</Text><Text accessibilityRole="header" style={s.title}>{analysis.animalName}</Text>
-        <Text style={s.body}>{analysis.animalReason}</Text>
+        <Text style={s.eyebrow}>{subjects.length > 1 ? 'WHY THESE ANIMALS' : 'WHY THIS ANIMAL'}</Text>
+        {subjects.length ? subjects.map(subject => <View key={subject.id} testID={`subject-reason-${subject.id}`} style={s.subjectReason}>
+          <Text style={s.caption}>{subject.position}</Text><Text accessibilityRole="header" style={s.sectionTitle}>{subject.animalName}</Text>
+          <Text style={s.body}>{subject.animalReason}</Text>
+        </View>) : <><Text accessibilityRole="header" style={s.title}>{analysis.animalName}</Text><Text style={s.body}>{analysis.animalReason}</Text></>}
       </View>
       {signature.length ? <View style={s.section}>
         <Text accessibilityRole="header" style={s.sectionTitle}>The details that make it yours</Text>
@@ -60,6 +64,7 @@ const s = StyleSheet.create({
   imageCaption: { paddingHorizontal: 16, paddingVertical: 15, gap: 5, backgroundColor: '#fdfcf6' },
   details: { backgroundColor: '#fffefa', padding: 25, borderRadius: 17, borderWidth: 1, borderColor: '#dce0d4', gap: 25 },
   reason: { gap: 10 }, eyebrow: { color: '#52704d', fontSize: 10, letterSpacing: 1.9, fontWeight: '700' },
+  subjectReason: { gap: 7, paddingVertical: 12 },
   title: { fontFamily: serif, fontSize: 33, color: '#233d32', letterSpacing: -0.8 }, section: { borderTopWidth: 1, borderColor: '#e3e6db', paddingTop: 23, gap: 13 },
   sectionTitle: { fontFamily: serif, fontSize: 24, color: '#233d32', letterSpacing: -0.4 },
   label: { fontSize: 13, color: '#233d32', fontWeight: '600' }, body: { fontSize: 14, lineHeight: 23, color: '#647064' },

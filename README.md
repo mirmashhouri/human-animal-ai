@@ -5,10 +5,10 @@ A Meta AI hackathon adaptation of the existing Kinform app. Upload a portrait an
 ## Pipeline
 
 1. Expo/React resizes the upload to a bounded JPEG and samples whole-image colors locally in the browser.
-2. One Create action starts the full pipeline. Muse Spark 1.3 produces structured observations of pose, composition, colors and an artistic animal suggestion. SAM 3.1 segments the subject in parallel on the web.
-3. The official `@meta-sam/parser` decodes SAM's actual mask. The browser creates a transparent subject reference. If several subjects are returned, the largest bounding region is selected and the interface says so.
-4. Muse Image 1.0 receives the original portrait and isolated reference, with the animal suggestion, pose, composition and palette. Painterly / Dreamlike defaults are internal; there are no direction controls.
-5. Human and animal appear side by side, including on mobile. The animal explanation, palette and visual story appear below. Browser export downloads one PNG; native export uses the device share sheet.
+2. One Create action starts the full pipeline. Muse Spark 1.3 produces structured observations of pose, composition, colors and an artistic animal suggestion. For group photos, it assigns an animal separately to each clear portrait and records that person's image position.
+3. For a single subject on web, SAM 3.1 supplies a mask and the official `@meta-sam/parser` decodes it into a transparent editing reference. Groups use the entire original photo and skip SAM/cutouts, so a one-person mask cannot remove other people.
+4. Muse Image 1.0 receives the original photo and, for single portraits, the isolated reference. A group makes one combined artwork with each person mapped to their own suggested animal, retaining positions, relative sizes, poses, clothing and interactions. People with unclear faces remain unchanged. Painterly / Dreamlike defaults are internal; there are no direction controls.
+5. Original and artwork appear side by side, including on mobile. Animal explanations appear below, individually by image position for group portraits, followed by the shared palette and visual story. Browser export downloads one PNG; native export uses the device share sheet.
 
 The backend remains ASP.NET Core 10, reusing the working project instead of rewriting it in Python. The inherited Kinform source is preserved, but the entry point is now `apps/mobile/WildLensApp.tsx`. Its old OpenAI routes stay in demo mode and are not used by WildLens. Original project notes are archived under `docs/KINFORM-*`.
 
@@ -45,7 +45,7 @@ AI_ENABLE_PAID_REQUESTS=false
 
 Alternatively, the first setup accepts `-CreditConfirmed -EnablePaidRequests` if you have already verified billing. Never put the key in `EXPO_PUBLIC_*`. Credentials were not copied from `idea`, and no key shared in chat was reused. Configuration names also accept host environment variables. Backend `.env` is Development-only.
 
-Selecting a photo does not upload it to Meta. Choosing Create confirms permission and makes one Spark request, one SAM request on web, and one image-edit request, with no intermediate action required. Repeating Create can incur another charge. No automatic retries are made; Stop prevents subsequent stages but cannot guarantee cancellation of work already accepted by Meta. Credit confirmation is a local declaration, not an automated balance check. The prototype's request/concurrency limits are not a dollar spending cap.
+Selecting a photo does not upload it to Meta. Choosing Create confirms permission and makes one Spark request and one image-edit request, plus one SAM request for single portraits on web. A group uses one combined image edit, not an image request per person. No intermediate action is required. Repeating Create can incur another charge. No automatic retries are made; Stop prevents subsequent stages but cannot guarantee cancellation of work already accepted by Meta. Credit confirmation is a local declaration, not an automated balance check. The prototype's request/concurrency limits are not a dollar spending cap.
 
 ## Muse Code
 
@@ -53,7 +53,7 @@ Muse Code is a development assistant, separate from the runtime image pipeline. 
 
 ## Output quality and training
 
-Matching and generation have been restored exactly from pushed commit `8afa99262b660ad2002353f6ad5a029927542d88`, using `wildlens-art-direction-v1`. The later continuity-v2 and structure-first-v3 matching/generation changes were reverted. Original-photo editing, real mask conditioning, measured colors and the pushed analysis/image prompts are retained. No measured quality improvement is claimed. The one-click interface and side-by-side comparison remain.
+The base matching approach is from pushed commit `8afa99262b660ad2002353f6ad5a029927542d88`. The later continuity-v2 and structure-first-v3 algorithms remain reverted. `wildlens-art-direction-v1-groups` adds group-photo handling using the same shape/pose analogy independently for each clear face; the single-portrait image prompt remains unchanged. No feature-priority ranking or additional Spark passes were added. Group plans support up to 20 clear portraits within the bounded analysis output. Animal choice and rendered likeness remain creative model outputs, not measured accuracy claims.
 
 Use [the evaluation workflow](evaluation/README.md) to compare results on a consented, varied photo set. `npm run evaluate -- evaluation/private/reviews.jsonl` summarizes human scores without making API calls. No custom training or fine-tuning has been run; a training decision needs suitable data, a supported model and a measured baseline.
 

@@ -1,3 +1,13 @@
+# Group-photo live test — 28 October 2026
+
+The current `wildlens-art-direction-v1-groups` version accepted both clear portraits in the user's supplied two-person photo. One Spark analysis assigned Owl to the viewer-left person and Deer to the viewer-right person, with position, pose and reason for each. Groups use the full original photo and skip SAM to avoid excluding anyone through a single-person cutout. One Muse Image edit produced a combined image containing both assigned animals, retaining the cap/glasses, straw hat, relative placement and shared background. The result was visually inspected.
+
+One manual analysis submission and one image-edit submission were made for this test, with no automatic retry. No general quality benchmark, exact billed cost or remaining balance is claimed. The input was the photo area cropped from the screenshot supplied with the group-support request; the local-demo portrait was not sent to Meta.
+
+Ignored local artifacts: `.artifacts/meta-live-group.png`, `.artifacts/meta-live-group-inspection.json`, `.artifacts/meta-live-group-summary.json`. The key stays in the backend configuration and was not copied or displayed. See VERIFICATION.md for offline and browser coverage. The current pipeline uses one Spark call and one image edit for a group; single portraits additionally use SAM on web.
+
+---
+
 # Meta live integration test — 26 October 2026
 
 The user entered the Meta key locally and enabled the backend credit and live-request flags. The key remains in C:\programming\human-animal-ai\server\Kinform.Api\.env; it was not printed, copied back to staging, or included in generated artifacts.

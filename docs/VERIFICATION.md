@@ -1,3 +1,22 @@
+# Group-photo support — 28 October 2026
+
+Current version: `wildlens-art-direction-v1-groups`, extending the restored pushed shape/pose matching approach. The single-portrait image prompt remains unchanged. The rejected continuity-v2 and structure-first-v3 rules remain absent.
+
+One Spark request returns a group flag and a position-bound animal assignment for each clear portrait (up to 20). Multiple people no longer cause the one-main-subject rejection. Groups bypass SAM and single-person cutouts, then one Muse Image edit receives the whole original and every assignment. Unclear/obscured people are left unchanged. The single-portrait path still uses SAM on web. The one-click UX, side-by-side comparison and shared palette/story remain; group results add an explanation per person using their image position.
+
+Confirmed:
+
+- 43 backend checks passed with simulated provider responses, including two/three-person groups, repeated animal species, one clear face in a group, invalid or duplicate assignments, full-photo image reference, per-person mapping, and no SAM call or discarded people through a cutout. No rejected feature-ranking rules are used.
+- TypeScript validation and the production web export passed. Backend build: zero warnings/errors.
+- Isolated browser checks passed for single and group response formats, one-click creation, per-person explanations, no group cutout, full original passed to generation, desktop/390px layout, cancellation, error handling, download and reset. No page exceptions. All model-facing browser requests were intercepted.
+- One manual live test used only the two-person photo area cropped from the screenshot supplied for this feature. Spark accepted both portraits and assigned Owl to the left person and Deer to the right person. One combined Muse Image edit completed; no SAM request or automatic retry was made. Visual inspection confirmed two separate animal subjects, with the original arrangement, cap/glasses and straw hat retained. This checks this group case, not general species-choice or likeness accuracy. Exact cost and remaining credit were not measured.
+
+Real result: ignored `.artifacts/meta-live-group.png`; plan: `.artifacts/meta-live-group-inspection.json`; summary: `.artifacts/meta-live-group-summary.json`. These contain the user's test photo/result and remain local. The browser screenshot `wildlens-group-details-mobile.png` uses simulated responses and is a UI check, not the real generated group image.
+
+Earlier reports below describe their respective versions. Native device behavior and large/complex groups remain unverified.
+
+---
+
 # Pushed matching and generation restored — 28 October 2026
 
 Current state: at the user's request, the animal-detection and image-generation implementation is restored exactly from GitHub `origin/main`, commit `8afa99262b660ad2002353f6ad5a029927542d88`. `server/Kinform.Api/WildLens.cs`, its regression tests and the live-test helper match that commit. Both subsequent continuity-v2 and structure-first-v3 algorithm changes are reverted. Reports below describe superseded experiments.

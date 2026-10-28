@@ -15,7 +15,7 @@ export async function createPortrait(photo: StudioPhoto, signal: AbortSignal, on
   const inspection = await inspectPhoto(photo, defaultOptions, signal);
   signal.throwIfAborted();
   let cutout;
-  if (defaultOptions.segment) {
+  if (defaultOptions.segment && inspection.segmentationStatus === 'segmented') {
     onStage('isolating');
     cutout = await isolateSubject(photo.uri, inspection.segmentationText);
     signal.throwIfAborted();

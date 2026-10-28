@@ -17,7 +17,7 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
     // The local-demo-only human photograph never reaches the real API or a model.
     await page.route('**/api/wildlens/config', route => route.fulfill({ json: { ...realConfig, liveReady: true, keyConfigured: true, creditConfirmed: true, paidRequestsEnabled: true } }));
     const analyses = [], renders = [];
-    let failGeneration = false, blockAnalysis = false, releaseAnalysis, analysisStarted;
+    let failGeneration = false, blockAnalysis = false, groupMode = false, releaseAnalysis, analysisStarted;
     const analysis = {
       subjectVisible: true, title: 'UI test portrait', pose: 'A gently turned head', composition: 'Soft framing', animalName: 'Fox',
       animalReason: 'Test explanation: the curved silhouette and turning pose suggest a fox.',
@@ -26,8 +26,12 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
     await page.route('**/api/wildlens/analyze', async route => {
       const body = route.request().postDataJSON(); analyses.push(body);
       if (blockAnalysis) { analysisStarted?.(); await new Promise(resolve => { releaseAnalysis = resolve; }); }
-      await route.fulfill({ json: { ticket: 'simulated-ticket', analysis: { ...analysis, palette: body.palette }, segmentationStatus: 'segmented', paletteSource: 'measured-in-browser', promptVersion: 'test-fixture',
-        segmentationText: '<0f>0<|box;x1=10;y1=20;x2=14;y2=24;w=100;h=100|><|mask;x=0;y=0;data=5,5,!!!!!(QO(0lu8?|>' } }).catch(() => {});
+      await route.fulfill({ json: { ticket: 'simulated-ticket', analysis: { ...analysis, palette: body.palette,
+          ...(groupMode ? { groupPhoto: true, animalName: 'Animal portraits', subjects: [
+            { id: 1, position: 'Viewer-left person in a gray cap', animalName: 'Fox', animalReason: 'First portrait: a turning pose suggests a fox.', pose: 'Keep the left head angle' },
+            { id: 2, position: 'Viewer-right person in a straw hat', animalName: 'Owl', animalReason: 'Second portrait: a rounded silhouette suggests an owl.', pose: 'Keep the right head angle' }
+          ] } : {}) }, segmentationStatus: groupMode ? 'skipped' : 'segmented', paletteSource: 'measured-in-browser', promptVersion: 'test-fixture',
+        segmentationText: groupMode ? '' : '<0f>0<|box;x1=10;y1=20;x2=14;y2=24;w=100;h=100|><|mask;x=0;y=0;data=5,5,!!!!!(QO(0lu8?|>' } }).catch(() => {});
     });
     await page.route('**/api/wildlens/generate', async route => {
       const body = route.request().postDataJSON(); renders.push(body);
@@ -101,8 +105,21 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
     await page.getByRole('button', { name: 'Stop', exact: true }).click(); releaseAnalysis();
     await page.getByRole('alert').filter({ hasText: 'Creation stopped' }).waitFor();
     assert.equal(renders.length, 2, 'Stopping analysis must prevent the next image request');
+    blockAnalysis = false; groupMode = true;
+    await page.getByRole('button', { name: 'Create my animal', exact: true }).click();
+    await page.getByText('WHY THESE ANIMALS', { exact: true }).waitFor();
+    await page.getByTestId('subject-reason-1').getByText('Fox', { exact: true }).waitFor();
+    await page.getByTestId('subject-reason-2').getByText('Owl', { exact: true }).waitFor();
+    assert.equal(renders.length, 3, 'A group creates one combined image with one click');
+    assert.equal(renders[2].isolatedSubject, undefined, 'Group generation must not receive a one-person cutout');
+    assert.equal(renders[2].imageBase64, analyses.at(-1).imageBase64, 'The entire original group photo reaches generation');
+    await assertLayout();
+    await page.getByText('WHY THESE ANIMALS', { exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(output, 'wildlens-group-details-mobile.png') });
+    await page.setViewportSize({ width: 1440, height: 1100 }); await assertLayout();
     assert.deepEqual(errors, []);
     console.log(JSON.stringify({ status: 'passed', oneClickPipeline: true, hiddenDefaults: true, noUploadBeforeGenerate: true,
-      sideBySideAtDesktopAnd390px: true, detailsBelowImages: true, originalApiResponse: true, cancellation: 'stops next paid stage', additionalMetaCalls: 0, pageErrors: errors }, null, 2));
+      sideBySideAtDesktopAnd390px: true, detailsBelowImages: true, originalApiResponse: true, groupAssignments: true,
+      wholeGroupReference: true, cancellation: 'stops next paid stage', additionalMetaCalls: 0, pageErrors: errors }, null, 2));
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -58,6 +58,34 @@ Check(handler.Calls.Count == 4, "A provider error is not automatically retried")
 handler.FailImage = false;
 var withoutSam = await service.InspectAsync(new(encoded, true, Segment: false), default);
 Check(withoutSam.SegmentationStatus == "skipped" && handler.Calls.Count == 5, "Optional isolation makes no SAM call");
+
+handler.GroupSize = 2;
+var callsBeforeGroup = handler.Calls.Count;
+var group = await service.InspectAsync(new(encoded, true), default);
+Check(group.Analysis.GroupPhoto && group.Analysis.Subjects?.Length == 2, "Two clear portraits are accepted and receive separate animal assignments");
+Check(handler.Calls.Count == callsBeforeGroup + 1 && group.SegmentationStatus == "skipped" && group.SegmentationText == "", "Group analysis uses one Spark call and skips a single-person SAM cutout");
+await service.RenderAsync(new(encoded, group.Ticket, true, IsolatedSubject: "a-single-person-cutout-must-not-be-used"), default);
+var groupRender = handler.Calls.Last(x => x.Uri.AbsolutePath.EndsWith("images/edits"));
+using (var json = JsonDocument.Parse(groupRender.Body)) {
+    Check(json.RootElement.GetProperty("images").GetArrayLength() == 1 && json.RootElement.GetProperty("images")[0].GetProperty("image_url").GetString() == "data:image/jpeg;base64," + encoded, "Group generation uses the whole original photo, without dropping anyone through isolation");
+    var prompt = json.RootElement.GetProperty("prompt").GetString()!;
+    Check(prompt.Contains("Viewer-left person") && prompt.Contains("Viewer-right person") && prompt.Contains("Fox") && prompt.Contains("Owl"), "Every person's position and own animal reaches the image editor");
+    Check(prompt.Contains("Do not swap animal assignments") && prompt.Contains("preserve them unchanged"), "Group prompt preserves assignments and people with unclear faces");
+    Check(!prompt.Contains("portraitContinuity") && !prompt.Contains("naturalLengthClass"), "Group support does not reintroduce rejected matching algorithms");
+}
+Check(handler.Calls.Count == callsBeforeGroup + 2, "A group creation uses one Spark request and one combined image edit");
+await Reject(() => service.RenderAsync(new(encoded, group.Ticket, true, Animal: "Fox"), default), "invalid_options");
+await Reject(() => { WildLensMeta.ValidateAnalysis(group.Analysis with { Subjects = [] }); return Task.CompletedTask; }, "invalid_meta_output");
+await Reject(() => { WildLensMeta.ValidateAnalysis(group.Analysis with { Subjects = [group.Analysis.Subjects![0], group.Analysis.Subjects![1] with { Id = 1 }] }); return Task.CompletedTask; }, "invalid_meta_output");
+await Reject(() => { WildLensMeta.ValidateAnalysis(group.Analysis with { Subjects = [group.Analysis.Subjects![0], group.Analysis.Subjects![1] with { Position = group.Analysis.Subjects![0].Position }] }); return Task.CompletedTask; }, "invalid_meta_output");
+await Reject(() => { WildLensMeta.ValidateAnalysis(group.Analysis with { GroupPhoto = false }); return Task.CompletedTask; }, "invalid_meta_output");
+handler.GroupSize = 3;
+var three = await service.InspectAsync(new(encoded, true), default);
+Check(three.Analysis.Subjects?.Length == 3 && three.Analysis.Subjects.Select(s => s.AnimalName).Distinct().Count() == 2, "Three-person groups work and may share an animal species");
+handler.GroupSize = 1;
+var partlyClear = await service.InspectAsync(new(encoded, true), default);
+Check(partlyClear.Analysis.GroupPhoto && partlyClear.Analysis.Subjects?.Length == 1, "A group with only one clear face still gets a valid transformation plan");
+handler.GroupSize = 0;
 var parsedEnv = LocalEnvironment.Parse("MODEL_API_KEY=fake\nMETA_CREDIT_CONFIRMED=false\nMETA_ENABLE_PAID_REQUESTS=false");
 Check(parsedEnv["WildLens:ApiKey"] == "fake" && parsedEnv["WildLens:CreditConfirmed"] == "false", "Meta environment mappings");
 using (var truncated = JsonDocument.Parse("{\"choices\":[{\"finish_reason\":\"length\",\"message\":{\"content\":\"\"}}]}")) {
@@ -77,6 +105,7 @@ Console.WriteLine($"WildLens: {count} checks passed. All Meta responses were sim
 sealed class MetaHandler : HttpMessageHandler {
     public List<(Uri Uri, string Body, string Auth)> Calls { get; } = [];
     public bool FailImage { get; set; }
+    public int GroupSize { get; set; }
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token) {
         var body = await request.Content!.ReadAsStringAsync(token);
         Calls.Add((request.RequestUri!, body, request.Headers.Authorization?.ToString() ?? ""));
@@ -85,7 +114,12 @@ sealed class MetaHandler : HttpMessageHandler {
         object response = request.RequestUri!.AbsolutePath switch {
             "/v1/chat/completions" => new { choices = new[] { new { message = new { content = JsonSerializer.Serialize(new {
                 subjectVisible = true, title = "Woodland light", pose = "A three-quarter view", composition = "Soft light and open framing",
-                animalName = "Fox", animalReason = "An artistic silhouette analogy", story = "A dreamlike woodland portrait.", palette = new[] { "#223344", "#aabbcc", "#ddeeff" }
+                animalName = GroupSize > 0 ? "Animal portraits" : "Fox", animalReason = "An artistic silhouette analogy", story = "A dreamlike woodland portrait.", palette = new[] { "#223344", "#aabbcc", "#ddeeff" },
+                groupPhoto = GroupSize > 0,
+                subjects = Enumerable.Range(1, GroupSize).Select(id => new {
+                    id, position = id == 1 ? "Viewer-left person" : id == 2 ? "Viewer-right person" : "Back-row person",
+                    animalName = id == 2 ? "Owl" : "Fox", animalReason = id == 2 ? "A rounded silhouette analogy" : "A turning pose analogy", pose = "Preserve the original head angle"
+                }).ToArray()
             }) } } } },
             "/v1/responses" => new { status = "completed", output = new[] { new { content = new[] { new { type = "output_text",
                 text = "<0f>0<|box;x1=10;y1=20;x2=14;y2=24;w=100;h=100|><|mask;x=0;y=0;data=5,5,!!!!!(QO(0lu8?|>" } } } } },
