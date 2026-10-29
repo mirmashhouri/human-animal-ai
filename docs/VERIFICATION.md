@@ -1,3 +1,24 @@
+# Private teaching and comparison benchmark — 28 October 2026
+
+The private creator workspace is at `http://localhost:8093/teach` (also `/?studio=teach`). It adds photo upload and person cropping, accepted/rejected animal labels, decisive observations, creative mappings, optional annotations for 30 traits, certainty, related-group train/validation/test splits, revision-aware saves, archive/restore and JSONL export. The three creator-supplied examples are loaded from the existing private dataset. Feedback collection does not train a model or change the public portrait matching/generation instructions.
+
+The benchmark supports offline prediction imports and an explicitly consented current-matcher run of 1–5 prepared subject crops. Current-matcher runs make Spark selection calls only, with no SAM, image generation or automatic retry, and do not include accepted labels in the model prompt. Cancellation records a partial run and stops later cases. Runs freeze labels, groups, partitions, input-reference hashes and version metadata. Comparison excludes changed/missing cases rather than silently rescoring against new labels. Missing predictions count as misses and coverage is reported. Animal names use case/whitespace normalization, with no hidden taxonomy/fuzzy matching.
+
+The initial baseline **Your original group comparison** contains the bear/deer/owl predictions supplied by the creator, against horse / fish-or-frog / owl accepted labels: 1 of 3 accepted, all from one related photo. Its model version is unknown and stated as such. This is an imported calibration example, not a new live-model test or held-out accuracy estimate.
+
+Privacy: teaching data and photos require a local password/session; routes independently reject non-loopback access, disallowed origins and mutation requests without the private header. The password is salted/PBKDF2-hashed and sessions are HttpOnly/SameSite. The local `evaluation/private/` folder remains ignored by Git. Test passwords and synthetic benchmark runs live only in isolated `.artifacts` fixture folders, not the owner dataset. The owner chooses a password on first opening the studio.
+
+Verification:
+
+- All 39 teaching backend checks passed, covering persistence and library order, alternatives, revision conflicts, safe photo paths, invalid annotations, grouped splits and history, frozen snapshots, changed-label/split/input exclusion, missing predictions, top-1/top-3 scoring, authentication/password persistence/sign-out, consent/crop gating, model/prompt version metadata, label-leak prevention and cancellation before/during a model request. All provider calls in tests are simulated.
+- The existing 43 WildLens backend checks passed. The public single/group one-click browser regression also passed with zero model calls and no page errors.
+- The private browser flow passed against an isolated API on port 5097 with real model access disabled: first-time password setup, unauthorized dataset/photo denial, origin/header enforcement, saved feedback, person crop and protected image loading, trait annotations, group split propagation, reload persistence, unsaved-change protection and discard/reload, JSONL download, two imported fixture runs and fair comparison, photo upload, archive/restore, sign-out and 390px layout without horizontal overflow. Screenshots in `.artifacts/teaching-*.png` use the isolated fixture data. The 100% fixture run is synthetic test input, not a claimed model improvement.
+- TypeScript validation passed. A production web export to a fresh `.artifacts` directory passed. An earlier staging export bundled successfully but could not persist into a locked OneDrive output folder; verification used the requested `C:\programming` project instead.
+
+No real Meta requests, model training, public deployment, remote account setup or Git push were performed for this feature. See TEACHING.md for use and storage details. Earlier reports below describe their respective versions.
+
+---
+
 # Group-photo support — 28 October 2026
 
 Current version: `wildlens-art-direction-v1-groups`, extending the restored pushed shape/pose matching approach. The single-portrait image prompt remains unchanged. The rejected continuity-v2 and structure-first-v3 rules remain absent.
@@ -94,4 +115,20 @@ Screenshots in `.artifacts/wildlens-home-desktop.png`, `.artifacts/wildlens-home
 The user requested live testing later. No Meta key was saved, credit was not independently verified, and no paid Meta API request, Muse Code authenticated coding run, custom training or fine-tuning was performed. Provider compatibility follows current official docs and mocked request contracts; account-specific behavior, quality, cost and latency still require the later live test.
 
 Native devices, camera permissions on real devices, native sharing and store builds remain unverified. Exact mask extraction currently runs in the browser studio; native users can disable isolation. The app is a local prototype, with no public deployment, production spend ledger or hard dollar cap. Historical Kinform verification is preserved in KINFORM-VERIFICATION.md and does not establish current Meta quality.
+
+# Fast teaching and RAG memory — October 29, 2026
+
+Implemented the approved flow: 100 attributed, visually reviewed Wikimedia portraits; English/Persian animal search; 20 quick −5…+5 trait sliders and independent standout checkboxes; Save & next, queue filtering and reload/resume; persistent trait vectors; runtime retrieval; baseline/personalized benchmark modes. The public one-click UI remains unchanged.
+
+Evidence:
+
+- Owner library: **103 cases**, comprising the original 3 and 100 distinct-person starter cases. All 100 starter labels remain empty. Exactly 100 JPEGs and complete author/license/source metadata were verified. All original fields and the existing password hash match the pre-change backup.
+- **25 memory checks**, **39 teaching checks**, **43 existing WildLens checks** passed with simulated provider responses. They cover null versus midpoint, legacy scale preservation, split/group/duplicate exclusions, label-independent retrieval, context photo delivery, rendering hints, group context distribution, persisted settings/vectors, cancellation, and frozen request provenance under concurrent edits.
+- **Fast teaching browser suite passed** against a disposable API/data copy: all starter rows, bilingual search, 20 sliders, salience, explicit zero, save/next, reload/resume, exports, memory switch, benchmark selector, private access and 390px layout. No browser errors or real model calls.
+- **Legacy teaching browser suite passed**: crop, legacy rating, group partitions, frozen-run comparison, exports, upload, archive/restore, sign-out and mobile.
+- **Public browser suite passed**: one click, hidden defaults, no pre-generation upload, original/result side by side at desktop and 390px, per-person group mappings, whole-group reference, cancellation and reset.
+- TypeScript and backend builds passed; production web export succeeded at `.artifacts/teaching-rag-web-build`. The teaching code/CSS remain lazy-loaded (about 60 KB JS and 13 KB CSS); public main JS is about 926 KB.
+- **Live Meta compatibility passed** in an isolated synthetic fixture with licensed photos: one geometry request, one art-direction request, one retrieved example, segmentation skipped, no image generation and no automatic retries. Owner feedback was not used or modified. Summary: `.artifacts/live-memory-contract-summary.json`. This is API compatibility evidence, not measured preference accuracy.
+
+Runtime data stays under `evaluation/private/`; a full local backup was taken before import. API 5086 and web 8093 remain running. Temporary fixture APIs were stopped. No fine-tuning, Git commit/push or public deployment was performed. Native teaching remains browser-only. Real quality/generalization remains to be measured once the creator supplies labels, especially on the held-out people.
 

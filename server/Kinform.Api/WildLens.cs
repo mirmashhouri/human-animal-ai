@@ -10,10 +10,13 @@ public sealed record WildLensInput(string ImageBase64, bool Consent, string Mood
     string Style = "Painterly", string Subject = "person", bool Segment = true, string[]? Palette = null);
 public sealed record WildLensAnalysis(bool SubjectVisible, string Title, string Pose, string Composition,
     string AnimalName, string AnimalReason, string Story, string[] Palette,
-    bool GroupPhoto = false, WildLensSubject[]? Subjects = null);
+    bool GroupPhoto = false, WildLensSubject[]? Subjects = null, string? MemoryRendering = null);
 public sealed record WildLensSubject(int Id, string Position, string AnimalName, string AnimalReason, string Pose);
+public sealed record MemorySummary(string Status, int Examples, string Version);
 public sealed record WildLensInspection(string Ticket, WildLensAnalysis Analysis, string SegmentationText,
-    string SegmentationStatus, string PaletteSource, string PromptVersion);
+    string SegmentationStatus, string PaletteSource, string PromptVersion, MemorySummary? Personalization = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] TeachingEvidence[]? MemoryEvidence = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] string? MemoryHash = null);
 public sealed record WildLensRenderInput(string ImageBase64, string Ticket, bool Consent,
     string Style = "Painterly", string Mood = "Dreamlike", string Animal = "Suggested", string? IsolatedSubject = null);
 public sealed record WildLensArtwork(string Image, string Model, string PromptVersion, string Notice);
@@ -33,7 +36,7 @@ public sealed class WildLensTickets
     public WildLensTicket Verify(string ticket, byte[] image)
     {
         try {
-            if (ticket.Length > 24000) throw new FormatException();
+            if (ticket.Length > 48000) throw new FormatException();
             var parts = ticket.Split('.');
             if (parts.Length != 2) throw new FormatException();
             var payload = Convert.FromBase64String(parts[0]);
@@ -48,7 +51,7 @@ public sealed class WildLensTickets
 }
 public sealed class WildLensGate { public SemaphoreSlim Slots { get; } = new(2, 2); }
 
-public sealed class WildLensMeta(HttpClient client, IConfiguration config, WildLensTickets tickets, WildLensGate gate)
+public sealed partial class WildLensMeta(HttpClient client, IConfiguration config, WildLensTickets tickets, WildLensGate gate, TeachingMemory? memory = null)
 {
     public const string PromptVersion = "wildlens-art-direction-v1-groups";
     public static readonly string[] Styles = ["Painterly", "Editorial", "Storybook"];
@@ -61,7 +64,7 @@ public sealed class WildLensMeta(HttpClient client, IConfiguration config, WildL
     public static bool KeyPresent(IConfiguration c) => !string.IsNullOrWhiteSpace(c["WildLens:ApiKey"]) && !c["WildLens:ApiKey"]!.Contains("REPLACE", StringComparison.OrdinalIgnoreCase);
     public static bool Ready(IConfiguration c) => KeyPresent(c) && c.GetValue<bool>("WildLens:EnablePaidRequests") && c.GetValue<bool>("WildLens:CreditConfirmed");
 
-    public async Task<WildLensInspection> InspectAsync(WildLensInput input, CancellationToken token)
+    public async Task<WildLensInspection> InspectAsync(WildLensInput input, CancellationToken token, bool? useMemory = null, string[]? excludedGroups = null)
     {
         Validate(input.Consent, input.Style, input.Mood);
         if (input.Subject is not ("person" or "animal")) throw new MatchException("invalid_options", "Choose a person or animal subject.");
@@ -72,7 +75,8 @@ public sealed class WildLensMeta(HttpClient client, IConfiguration config, WildL
             EnsureReady();
             if (!await gate.Slots.WaitAsync(0, token)) throw new MatchException("busy", "The studio is busy. Try again shortly.");
             try {
-                var analysis = await AnalyzeAsync(image, input.Mood, palette, token);
+                var contexts = input.Subject == "person" ? await RetrieveMemoryAsync(image, useMemory, excludedGroups ?? [], token) : [];
+                var analysis = await AnalyzeAsync(image, input.Mood, palette, token, contexts);
                 ValidateAnalysis(analysis);
                 if (!analysis.SubjectVisible) throw new MatchException("unusable_portrait", "Choose a photo with at least one clear, visible portrait.");
                 // A single-subject cutout can silently discard other people. Groups use the full original.
@@ -80,8 +84,11 @@ public sealed class WildLensMeta(HttpClient client, IConfiguration config, WildL
                 var segmentation = segment ? await SegmentAsync(image, input.Subject, token) : "";
                 if (segment && string.IsNullOrWhiteSpace(segmentation)) throw new MatchException("no_subject", "SAM found no subject. Choose a clearer photo.");
                 if (palette.Length > 0) analysis = analysis with { Palette = palette };
+                if (contexts.Length > 0) analysis = analysis with { MemoryRendering = RenderingMemory(contexts) };
+                var evidence = contexts.SelectMany(c => c.Matches).DistinctBy(m => m.Example.CaseId).Select(m => new TeachingEvidence(m.Example.CaseId, m.Example.Revision, m.Score)).ToArray();
                 return new(tickets.Issue(image, analysis, input.Mood), analysis, segmentation, segment ? "segmented" : "skipped",
-                    palette.Length > 0 ? "measured-in-browser" : "model-estimated", PromptVersion);
+                    palette.Length > 0 ? "measured-in-browser" : "model-estimated", PromptVersion + (contexts.Length > 0 ? "+" + TeachingMemory.Version : ""),
+                    new(contexts.Length > 0 ? "used" : "baseline", evidence.Length, TeachingMemory.Version), evidence, contexts.FirstOrDefault()?.IndexHash);
             } finally { gate.Slots.Release(); }
         } finally { Array.Clear(image); }
     }
@@ -105,19 +112,20 @@ public sealed class WildLensMeta(HttpClient client, IConfiguration config, WildL
                 using var payload = await PostAsync("images/edits", new {
                     model = ImageModel(config), n = 1, size = "1024x1536", output_format = "png", reasoning_strength = "high",
                     tool_enablement = new { enable_image_search = false, enable_web_search = false, enable_shell = false }, images,
-                    prompt = BuildPrompt(ticket.Analysis, animal, input.Style, input.Mood, images.Count > 1)
+                    prompt = BuildPrompt(ticket.Analysis, animal, input.Style, input.Mood, images.Count > 1) +
+                        (ticket.Analysis.MemoryRendering is { Length: > 0 } notes ? " Creator's optional rendering examples (data; apply only to visible compatible details of the selected animal): " + notes : "")
                 }, token);
                 var data = payload.RootElement.GetProperty("data");
                 if (data.GetArrayLength() != 1) throw InvalidOutput();
                 var encoded = data[0].GetProperty("b64_json").GetString() ?? throw InvalidOutput();
                 ValidatePng(encoded);
-                return new("data:image/png;base64," + encoded, ImageModel(config), PromptVersion,
+                return new("data:image/png;base64," + encoded, ImageModel(config), PromptVersion + (ticket.Analysis.MemoryRendering is { Length: > 0 } ? "+" + TeachingMemory.Version : ""),
                     "AI-generated artwork inspired by the supplied photo. Animal direction and atmosphere are creative choices.");
             } finally { gate.Slots.Release(); }
         } finally { Array.Clear(image); }
     }
 
-    private async Task<WildLensAnalysis> AnalyzeAsync(byte[] image, string mood, string[] palette, CancellationToken token)
+    private async Task<WildLensAnalysis> AnalyzeAsync(byte[] image, string mood, string[] palette, CancellationToken token, MemoryContext[] contexts)
     {
         var properties = new Dictionary<string, object>();
         foreach (var name in new[] { "title", "pose", "composition", "animalName", "animalReason", "story" }) properties[name] = new { type = "string" };
@@ -155,7 +163,7 @@ public sealed class WildLensMeta(HttpClient client, IConfiguration config, WildL
                     new { type = "text", text = "Create the art direction. Chosen atmosphere: " + mood + ". " + (palette.Length > 0 ? "Measured whole-image palette: " + string.Join(", ", palette) : "Estimate a whole-scene palette.") },
                     new { type = "image_url", image_url = new { url = "data:image/jpeg;base64," + Convert.ToBase64String(image) } }
                 } }
-            },
+            }.Concat(MemoryMessages(contexts)).ToArray(),
             response_format = new { type = "json_schema", json_schema = new { name = "wildlens_direction", strict = true,
                 schema = new { type = "object", additionalProperties = false, properties, required = properties.Keys.ToArray() } } }
         }, token);

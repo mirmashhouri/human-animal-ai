@@ -32,6 +32,10 @@ builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 
 builder.Services.AddSingleton<Catalogue>();
 builder.Services.AddSingleton<WildLensTickets>();
 builder.Services.AddSingleton<WildLensGate>();
+builder.Services.AddSingleton(_ => new TeachingStore(builder.Configuration["Teaching:DataRoot"] ?? Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "evaluation", "private"))));
+builder.Services.AddSingleton<TeachingAuth>();
+builder.Services.AddSingleton<TeachingMemory>();
+builder.Services.AddScoped<TeachingBenchmarks>();
 builder.Services.AddHttpClient<WildLensMeta>(client => {
     client.Timeout = TimeSpan.FromSeconds(180);
     client.MaxResponseContentBufferSize = 24 * 1024 * 1024;
@@ -67,10 +71,13 @@ builder.Services.AddScoped<IAnimalMatcher>(services =>
         ? services.GetRequiredService<OpenAiMatcher>() : services.GetRequiredService<DemoMatcher>());
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .WithOrigins(builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [])
-    .WithMethods("GET", "POST").WithHeaders("Content-Type")));
+    .WithMethods("GET", "POST").WithHeaders("Content-Type", "X-WildLens-Teaching").AllowCredentials()));
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddFixedWindowLimiter("teaching-auth", limiter => {
+        limiter.PermitLimit = 10; limiter.Window = TimeSpan.FromMinutes(1); limiter.QueueLimit = 0;
+    });
     options.AddFixedWindowLimiter("catalogue", limiter => {
         limiter.PermitLimit = 20;
         limiter.Window = TimeSpan.FromMinutes(1);
@@ -187,6 +194,7 @@ app.MapPost("/api/matches", async (MatchRequest request, IAnimalMatcher matcher,
 app.MapPost("/api/hybrids", () => Results.Json(new ApiError("hybrid_not_configured",
     "Hybrid generation is not connected yet. Your photo comparison is still available."), statusCode: 501));
 app.MapWildLens();
+app.MapTeaching();
 app.Run();
 
 public partial class Program;

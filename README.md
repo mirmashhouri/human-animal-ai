@@ -45,7 +45,13 @@ AI_ENABLE_PAID_REQUESTS=false
 
 Alternatively, the first setup accepts `-CreditConfirmed -EnablePaidRequests` if you have already verified billing. Never put the key in `EXPO_PUBLIC_*`. Credentials were not copied from `idea`, and no key shared in chat was reused. Configuration names also accept host environment variables. Backend `.env` is Development-only.
 
-Selecting a photo does not upload it to Meta. Choosing Create confirms permission and makes one Spark request and one image-edit request, plus one SAM request for single portraits on web. A group uses one combined image edit, not an image request per person. No intermediate action is required. Repeating Create can incur another charge. No automatic retries are made; Stop prevents subsequent stages but cannot guarantee cancellation of work already accepted by Meta. Credit confirmation is a local declaration, not an automated balance check. The prototype's request/concurrency limits are not a dollar spending cap.
+Selecting a photo does not upload it to Meta. Choosing Create confirms permission and makes one Spark selection request and one image-edit request, plus one SAM request for single portraits on web. With eligible RAG memory enabled, one additional Spark geometry request and selected reference-image context guide selection. A group uses one combined image edit, not an image request per person. No intermediate action is required. Repeating Create can incur another charge. No automatic retries are made; Stop prevents subsequent stages but cannot guarantee cancellation of work already accepted by Meta. Credit confirmation is a local declaration, not an automated balance check. The prototype's request/concurrency limits are not a dollar spending cap.
+
+## Private teaching and benchmark
+
+Open **http://localhost:8093/teach** and choose a private password on first use. Annotate accepted/rejected animals, reasons, creative mappings and optional traits; crop each person; organize related cases into training/validation/test splits; export feedback; and compare saved prediction runs. Your three supplied preferences and the original bear/deer/owl comparison are seeded as the first dataset and baseline.
+
+Feedback stays in Git-ignored local files. Eligible training examples can guide the public matcher through retrieved context when Memory is on; this does not train a model. Imports and comparisons make no model calls. Optional current-matcher benchmarks require explicit credit/permission consent and make Spark selection requests only. See [the teaching guide](docs/TEACHING.md).
 
 ## Muse Code
 
@@ -85,3 +91,7 @@ npm run web:build
 - [Official SAM parser and protocol](https://github.com/meta-models/meta-sam)
 - [Muse Image generation and editing](https://dev.meta.ai/docs/image-generation)
 - [Hackathon event](https://dev.meta.ai/events/global-hackathon)
+
+### Fast teaching and RAG memory
+
+The private teaching studio now includes 100 attributed, unlabeled starter portraits, bilingual animal search, 20 quick feature sliders, standout checkboxes, Save & next, persistent vectors and optional runtime retrieval. See [the personalization guide](docs/PERSONALIZATION.md). No fine-tuning or automatic starter labels.

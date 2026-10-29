@@ -14,7 +14,9 @@
     "api:test": "dotnet run --project server/Kinform.Tests",
     "web:build": "npm run web:build --workspace apps/mobile",
     "test:meta": "dotnet run --project server/WildLens.Tests",
-    "evaluate": "node scripts/evaluate.mjs"
+    "evaluate": "node scripts/evaluate.mjs",
+    "test:teaching": "dotnet run --project server/Teaching.Tests",
+    "test:memory": "dotnet run --project server/Memory.Tests"
   },
   "devDependencies": {
     "agent-browser": "0.36.0"
