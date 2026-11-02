@@ -15,6 +15,7 @@ export type Direction = {
 export type Inspection = {
   ticket: string; analysis: Direction; segmentationText: string;
   segmentationStatus: 'segmented' | 'skipped'; paletteSource: string; promptVersion: string;
+  personalization?: { status: 'used' | 'baseline'; examples: number; version: string } | null;
 };
 export type Artwork = { image: string; model: string; promptVersion: string; notice: string };
 export type StudioPhoto = { uri: string; base64: string; palette: string[] };

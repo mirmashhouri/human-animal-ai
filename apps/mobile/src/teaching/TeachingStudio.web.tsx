@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as api from './api';
 import type { Example, Status } from './types';
 import { filePhoto } from './photos';
 import CaseEditor from './CaseEditor.web';
 import Benchmarks from './Benchmarks.web';
 import MemoryPanel from './MemoryPanel.web';
+import ChoiceStudio from './ChoiceStudio.web';
+import FeedbackStudio from './FeedbackStudio.web';
 import './teaching.css';
 
 function emptyExample(file: string, groupId?: string): Example {
@@ -15,17 +17,17 @@ export default function TeachingStudio() {
   const [status, setStatus] = useState<Status | null>(null);
   const [examples, setExamples] = useState<Example[]>([]);
   const [selected, setSelected] = useState<Example | null>(null);
-  const [tab, setTab] = useState<'teach' | 'benchmark' | 'memory'>('teach');
+  const [tab, setTab] = useState<'feedback' | 'choices' | 'teach' | 'benchmark' | 'memory'>('feedback');
   const [password, setPassword] = useState(''); const [confirmation, setConfirmation] = useState('');
   const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState('');
   const [dirty, setDirty] = useState(false); const [epoch, setEpoch] = useState(0);
   const [search, setSearch] = useState(''); const [showArchived, setShowArchived] = useState(false);
   const [queue, setQueue] = useState('all');
   const fileInput = useRef<HTMLInputElement>(null);
-  function report(error: unknown) {
+  const report = useCallback((error: unknown) => {
     setError(error instanceof Error ? error.message : String(error));
     if (error instanceof api.StudioError && error.status === 401) setStatus(previous => previous ? { ...previous, authenticated: false } : previous);
-  }
+  }, []);
   useEffect(() => { let mounted = true; void api.status().then(value => { if (mounted) setStatus(value); }).catch(report); return () => { mounted = false; }; }, []);
   useEffect(() => {
     let mounted = true;
@@ -81,7 +83,7 @@ export default function TeachingStudio() {
   }
   const visible = examples.filter(c => (showArchived || !c.archived) && (queue !== 'pending' || c.acceptedAnimals.length === 0) && (queue !== 'labeled' || c.acceptedAnimals.length > 0) && `${c.personPosition} ${c.caseId} ${c.acceptedAnimals.join(' ')} ${c.groupId}`.toLowerCase().includes(search.toLowerCase()));
   const active = examples.filter(c => !c.archived);
-  return <main className="teach-root"><div className="teach-shell">
+  return <main className={`teach-root${['choices', 'feedback'].includes(tab) && status?.authenticated ? ' teach-visual-mode' : ''}`}><div className="teach-shell">
     <header className="teach-header"><a className="teach-brand" href="/">WildLens<span>.</span></a><div className="teach-inline"><span className="teach-badge">Local · private</span>{status?.authenticated && <button className="teach-text-button" onClick={() => {
       if (!canLeave()) return;
       void api.call('logout', {}).then(() => { setExamples([]); setSelected(null); setStatus(previous => previous ? { ...previous, authenticated: false } : previous); }).catch(report);
@@ -93,10 +95,11 @@ export default function TeachingStudio() {
           {!status.configured && <label>Repeat password<input type="password" required minLength={10} maxLength={200} autoComplete="new-password" value={confirmation} onChange={event => setConfirmation(event.target.value)} /></label>}
           <button className="teach-button" disabled={busy}>{busy ? 'Opening…' : status.configured ? 'Sign in' : 'Create private password'}</button></form><p className="teach-help">This password protects the teaching studio. Your Meta API key stays in the backend.</p></section> : <>
         <section className="teach-hero"><p className="teach-kicker">CREATOR’S WORKSPACE</p><h1>Teach your eye.</h1><p>Capture the choices, traits and creative connections that make a portrait feel right to you.</p><div className="teach-inline"><span className="teach-badge">{active.length} examples · {new Set(active.map(c => c.groupId)).size} related groups</span><span className="teach-badge">Collecting feedback · no model trained</span></div></section>
-        <nav className="teach-tabs" aria-label="Private studio"><button aria-pressed={tab === 'teach'} onClick={() => { if (canLeave()) setTab('teach'); }}>Teach</button><button aria-pressed={tab === 'benchmark'} onClick={() => { if (canLeave()) setTab('benchmark'); }}>Benchmark</button><button aria-pressed={tab === 'memory'} onClick={() => { if (canLeave()) setTab('memory'); }}>Memory · RAG</button>
+        <nav className="teach-tabs" aria-label="Private studio"><button aria-pressed={tab === 'feedback'} onClick={() => { if (canLeave()) setTab('feedback'); }}>Result feedback</button><button aria-pressed={tab === 'choices'} onClick={() => { if (canLeave()) setTab('choices'); }}>Animal choices</button><button aria-pressed={tab === 'teach'} onClick={() => { if (canLeave()) setTab('teach'); }}>Teach</button><button aria-pressed={tab === 'benchmark'} onClick={() => { if (canLeave()) setTab('benchmark'); }}>Benchmark</button><button aria-pressed={tab === 'memory'} onClick={() => { if (canLeave()) setTab('memory'); }}>Memory · RAG</button>
           <button className="teach-export" onClick={() => void api.download('export', 'wildlens-private-feedback.jsonl').catch(report)}>Export feedback</button></nav>
         {notice && <p className="teach-success" role="status">{notice}</p>}
-        {tab === 'teach' ? <div className="teach-workspace"><aside className="teach-library"><div className="teach-section-heading"><h2>Your examples</h2><span>{active.filter(c => c.acceptedAnimals.length > 0).length} / {active.length} labeled</span></div>
+        {tab === 'feedback' ? <FeedbackStudio examples={examples} metaReady={status.metaReady} onError={report} onDirty={setDirty}
+          refresh={async () => { const result = await api.cases(); setExamples(result.cases); }} onCrop={item => { if (canLeave()) { setSelected(item); setTab('teach'); setEpoch(n => n + 1); } }} /> : tab === 'choices' ? <ChoiceStudio examples={examples} metaReady={status.metaReady} onError={report} onDirty={setDirty} refresh={async () => { const result = await api.cases(); setExamples(result.cases); }} /> : tab === 'teach' ? <div className="teach-workspace"><aside className="teach-library"><div className="teach-section-heading"><h2>Your examples</h2><span>{active.filter(c => c.acceptedAnimals.length > 0).length} / {active.length} labeled</span></div>
           <label>Queue<select aria-label="Portrait queue" value={queue} onChange={event => setQueue(event.target.value)}><option value="all">All portraits</option><option value="pending">Not yet labeled</option><option value="labeled">Labeled</option></select></label>
           <button className="teach-button" disabled={busy} onClick={() => { if (canLeave()) fileInput.current?.click(); }}>+ Add photo</button>
           <input hidden ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" aria-label="Add teaching photo" onChange={event => { const file = event.target.files?.[0]; if (file) void upload(file); event.target.value = ''; }} />

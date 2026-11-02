@@ -25,7 +25,7 @@ public sealed class TeachingBenchmarks(TeachingStore store, WildLensMeta meta, I
             catch (MatchException error) { predictions.Add(new(item.CaseId, [], error.Message)); }
             catch (HttpRequestException) { predictions.Add(new(item.CaseId, [], "Meta could not be reached. No retry made.")); }
         }
-        return store.SaveRun(name, WildLensMeta.Spark(config) + " / " + WildLensMeta.PromptVersion + (useMemory ? "+" + TeachingMemory.Version : ""),
+        return store.SaveRun(name, WildLensMeta.Spark(config) + " / " + WildLensMeta.PromptVersion + (useMemory ? "+" + TeachingMemory.Version + "/" + WildLensMeta.MemoryGuidanceVersion : ""),
             useMemory ? "meta-personalized-selection" : "meta-selection-only", cases, predictions.ToArray(), cancelled ? "cancelled" : "complete",
             useMemory ? TeachingScoring.Hash(memoryHashes) : null);
     }

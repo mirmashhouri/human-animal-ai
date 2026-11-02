@@ -28,6 +28,7 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
     await page.getByLabel('Repeat password', { exact: true }).fill('disposable-browser-test-password');
     await page.getByRole('button', { name: 'Create private password', exact: true }).click();
     await page.getByRole('heading', { name: 'Teach your eye.', exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Teach', exact: true }).click();
     await page.getByRole('heading', { name: 'Teach this portrait', exact: true }).waitFor();
     await page.getByRole('button', { name: /viewer-left person horse/ }).click();
     await page.getByText('Rejected animals & optional reasoning', { exact: true }).click();
@@ -62,6 +63,7 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
     await page.getByRole('button', { name: 'Save example', exact: true }).click();
     await page.getByText('Saved locally. Your vector index is up to date.', { exact: true }).waitFor();
     await page.reload({ waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: 'Teach', exact: true }).click();
     await page.getByRole('heading', { name: 'Teach this portrait', exact: true }).waitFor();
     await page.getByRole('button', { name: /viewer-left person horse/ }).click();
     data = await context.request.get(testBase + '/api/teaching/cases').then(r => r.json());

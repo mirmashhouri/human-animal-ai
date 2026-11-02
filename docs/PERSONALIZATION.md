@@ -2,6 +2,10 @@
 
 Open http://localhost:8093/teach and sign in with the existing private password. Public portrait creation remains one click at `/`.
 
+The default **Result feedback** screen generates one animal portrait with the current preference context, then asks for **Agree** or **Disagree**. Disagree requires your preferred animal and reason. There are 100 new portraits and an upload option. Confirmed feedback immediately updates retrieval memory; unreviewed generations never enter it. See [Result feedback](RESULT-FEEDBACK.md) for the workflow, storage and exports.
+
+**Animal choices** still compares three generated portraits with three short reason phrases each and a custom fourth option. See [Teaching by animal choices](ANIMAL-CHOICES.md). The slider workflow remains under **Teach**. All workflows share the same private dataset and light, person-specific retrieval guidance.
+
 ## The 100-photo starter set
 
 The library contains 100 **unlabeled** Wikimedia portraits plus the original three creator judgments. The JPEGs, attribution file, source/license manifest and four contact sheets are in `evaluation/private/starter-portraits/`. Names/source identity metadata are for the private library only, not model context. The source set was visually reviewed for readable portraits; glasses, angled heads and some covered features are intentional. Hidden or unclear features should remain unrated.
@@ -24,7 +28,7 @@ The photo stays beside the feature controls on desktop. The library has thumbnai
 
 `studio/memory-index.json` contains 20 normalized trait dimensions, null masks, standout flags, case revisions, groups, partitions and JPEG hashes. These are interpretable geometric feature vectors, **not learned image embeddings or identity recognition**. Accepted animal names do not participate in similarity calculations. Index files rebuild on save and can recover if missing/stale.
 
-Rated/salience-only cases can be indexed; labels alone remain saved but are not retrieval-ready. Only active, labeled **training** cases with a single-person reference and at least one supported rating/standout feature are eligible for retrieval. Unassigned, validation, test and archived cases cannot teach the runtime. Unknown values stay null and are not compared as zero.
+Rated/salience-only cases can be indexed; a confirmed animal-choice case can instead use its separately stored AI geometry. Plain labels with neither features nor a confirmed retrieval profile remain saved but are not retrieval-ready. Only active, labeled **training** cases with a single-person reference and usable geometry/standout features are eligible. Manual values override AI estimates, including explicitly hidden/unknown traits. Unassigned, validation, test and archived cases cannot teach the runtime. Unknown values stay null and are not compared as zero.
 
 Search compares shared observed traits, optional user importance and explicit salience. With numeric overlap, opposite values cannot be rescued simply because the same feature is marked standout. With no numeric overlap, shared standout flags can retrieve examples. The score and threshold are versioned engineering heuristics, **not probabilities, verified likeness scores or learned creator weights**. No shared evidence means no match. This is the first approach to evaluate, not evidence that the app has learned the creator's taste.
 
@@ -36,7 +40,7 @@ For a new person photo, if an eligible training pool exists:
 
 1. One additional Spark request extracts the same 20 subjective geometry features, before any species is chosen. Unclear features are null. Group profiles use positional descriptions, not identities.
 2. Local vector search selects up to three examples per person, bounded to six example assignments per group request. Exact duplicate JPEG bytes and declared excluded groups are rejected.
-3. The normal Spark art-direction request receives the **new photo plus actual selected reference crops**, creator choices, rejected alternatives, cues, ratings and rendering notes. It is instructed to use examples as guidance, not force their species onto every new face. Source names, celebrity identities, paths and URLs are omitted.
+3. The normal Spark art-direction request receives the **new photo plus actual selected reference crops**, creator choices, rejected alternatives, cues, ratings and rendering notes. The new portrait's visible shapes lead selection. The examples are weak, person-specific supporting context, primarily helping between similarly strong fits. Their animal names are not a shortlist or a species-frequency preference; rejected choices are not global bans. Any suitable animal, including one never labeled in the teaching set, remains possible. Variety is allowed to arise naturally without a novelty quota. Source names, celebrity identities, paths and URLs are omitted.
 4. Species selection feeds the existing Muse Image editing pipeline. Compatible creative mappings guide rendering after selection. The original photo stays authoritative for its own visible details and group arrangement.
 
 The public response reports only memory status/example count; private case IDs are retained only in benchmark evidence. No eligible pool, Memory off, or animal-subject mode preserves the baseline request flow. If profiles yield no relevant match, the original selection prompt is used; the already-made geometry call may still be billed. A provider/invalid-profile error stops without automatic retry or image generation.

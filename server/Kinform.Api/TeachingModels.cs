@@ -32,6 +32,8 @@ public sealed record TeachingCase {
     public int TraitScale { get; init; } = 100;
     public string[] SalientFeatures { get; init; } = [];
     public Dictionary<string, string> Appearance { get; init; } = [];
+    public TeachingPreference? Preference { get; init; }
+    public FeedbackJudgment? Feedback { get; init; }
     public bool Archived { get; init; }
     public int Revision { get; init; }
     public DateTimeOffset? UpdatedAt { get; init; }

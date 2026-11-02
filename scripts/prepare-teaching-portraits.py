@@ -27,21 +27,29 @@ def api(host, **params):
 
 def main():
     parser = argparse.ArgumentParser(); parser.add_argument('--output', required=True); parser.add_argument('--count', type=int, default=100)
+    parser.add_argument('--people-file'); parser.add_argument('--exclude-manifest', action='append', default=[])
     args = parser.parse_args(); root = Path(args.output).resolve(); photos = root / 'photos'; photos.mkdir(parents=True, exist_ok=True)
+    people = json.loads(Path(args.people_file).read_text('utf-8-sig')) if args.people_file else PEOPLE
+    excluded = []; excluded_names = set(); excluded_hashes = set()
+    for filename in args.exclude_manifest:
+        excluded.extend(json.loads(Path(filename).read_text('utf-8-sig')))
+    excluded_names = {r['person'].strip().casefold() for r in excluded}; excluded_hashes = {r['sha256'] for r in excluded}
+    people = [name for name in people if name.strip().casefold() not in excluded_names]
     manifest_path = root / 'manifest.json'
     records = json.loads(manifest_path.read_text('utf-8')) if manifest_path.exists() else []
     done = {r['person'] for r in records}; candidates = []
     cache = root / 'candidates.json'
     if cache.exists(): candidates = [tuple(c) for c in json.loads(cache.read_text('utf-8')) if c[0] not in done]
     else:
-        for start in range(0, len(PEOPLE), 20):
-            batch = api('en.wikipedia.org', action='query', prop='pageimages', titles='|'.join(PEOPLE[start:start+20]), piprop='name', redirects=1)
+        for start in range(0, len(people), 20):
+            batch = api('en.wikipedia.org', action='query', prop='pageimages', titles='|'.join(people[start:start+20]), piprop='name', redirects=1)
             for page in batch.get('query', {}).get('pages', {}).values():
                 if page.get('pageimage') and page['title'] not in done: candidates.append((page['title'], page['pageimage']))
             time.sleep(.5)
         cache.write_text(json.dumps(candidates, ensure_ascii=False), 'utf-8')
     # Keep the curated alternating order rather than MediaWiki's numeric page order.
-    order = {name: i for i, name in enumerate(PEOPLE)}; candidates.sort(key=lambda x: order.get(x[0], 10000))
+    candidates = [c for c in candidates if c[0].strip().casefold() not in excluded_names]
+    order = {name: i for i, name in enumerate(people)}; candidates.sort(key=lambda x: order.get(x[0], 10000))
     metadata_file = root / 'source-metadata.json'
     metadata = json.loads(metadata_file.read_text('utf-8')) if metadata_file.exists() else {}
     for start in range(0, len(candidates)):
@@ -58,11 +66,13 @@ def main():
     def download(candidate):
         person, name = candidate; info = metadata.get(name.replace('_', ' '))
         if not info: return None
+        if '/wikipedia/commons/' not in info.get('url', '') or not info.get('descriptionurl', '').startswith('https://commons.wikimedia.org/'):
+            return None
         meta = info.get('extmetadata', {}); val = lambda key: plain(meta.get(key, {}).get('value', ''))
         license_name = val('LicenseShortName'); license_url = val('LicenseUrl')
         if not (re.match(r'^CC (BY|BY-SA|0)( |$)', license_name, re.I) or 'public domain' in license_name.lower()): return None
         if not license_url and 'public domain' in license_name.lower(): license_url = 'https://creativecommons.org/publicdomain/mark/1.0/'
-        if not license_url.startswith(('https://creativecommons.org/', 'http://creativecommons.org/')): return None
+        if not license_url.startswith(('https://creativecommons.org/', 'http://creativecommons.org/')) or not val('Artist'): return None
         url = info.get('thumburl', info['url'])
         image = ImageOps.exif_transpose(Image.open(io.BytesIO(get(url, True)))).convert('RGB')
         if min(image.size) < 180: return None
@@ -82,7 +92,7 @@ def main():
             for candidate, job in jobs:
                 try:
                     record = job.result()
-                    if record and len(records) < args.count:
+                    if record and record['sha256'] not in excluded_hashes and record['sha256'] not in {r['sha256'] for r in records} and len(records) < args.count:
                         records.append(record); manifest_path.write_text(json.dumps(records, ensure_ascii=False, indent=2), 'utf-8')
                         print(f'{len(records)}/{args.count} {record["person"]} - {record["license"]}', flush=True)
                 except Exception as error: failures.append({'person': candidate[0], 'error': str(error)[:250]})

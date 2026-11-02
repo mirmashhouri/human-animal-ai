@@ -21,6 +21,7 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
     await page.getByLabel('Private studio password',{exact:true}).fill('quick-browser-disposable-password');
     await page.getByLabel('Repeat password',{exact:true}).fill('quick-browser-disposable-password');
     await page.getByRole('button',{name:'Create private password',exact:true}).click();
+    await page.getByRole('button',{name:'Teach',exact:true}).click();
     await page.getByRole('heading',{name:'Teach your eye.',exact:true}).waitFor();
     const cases = () => context.request.get(base+'/api/teaching/cases').then(r => r.json()).then(r => r.cases);
     const initial = await cases(); assert.equal(initial.length,103); assert.equal(initial.filter(c=>c.starterPack).length,100);

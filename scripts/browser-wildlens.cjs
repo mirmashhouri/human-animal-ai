@@ -31,6 +31,7 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
             { id: 1, position: 'Viewer-left person in a gray cap', animalName: 'Fox', animalReason: 'First portrait: a turning pose suggests a fox.', pose: 'Keep the left head angle' },
             { id: 2, position: 'Viewer-right person in a straw hat', animalName: 'Owl', animalReason: 'Second portrait: a rounded silhouette suggests an owl.', pose: 'Keep the right head angle' }
           ] } : {}) }, segmentationStatus: groupMode ? 'skipped' : 'segmented', paletteSource: 'measured-in-browser', promptVersion: 'test-fixture',
+        personalization: { status: groupMode ? 'baseline' : 'used', examples: groupMode ? 0 : 3, version: 'simulated-memory' },
         segmentationText: groupMode ? '' : '<0f>0<|box;x1=10;y1=20;x2=14;y2=24;w=100;h=100|><|mask;x=0;y=0;data=5,5,!!!!!(QO(0lu8?|>' } }).catch(() => {});
     });
     await page.route('**/api/wildlens/generate', async route => {
@@ -47,6 +48,7 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
     await page.screenshot({ path: path.join(output, 'wildlens-minimal-home.png') });
     await page.getByRole('button', { name: 'Explore the demo', exact: true }).click();
     await page.getByText('Reference photo · layout demo', { exact: true }).waitFor();
+    assert.equal(await page.getByTestId('preference-guidance').count(), 0);
     assert.equal(analyses.length + renders.length, 0, 'Local demo must make no provider-facing requests');
     await page.reload({ waitUntil: 'networkidle' });
     async function upload() {
@@ -68,6 +70,7 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
     assert.equal(renders[0].animal, 'Suggested'); assert.equal(renders[0].imageBase64, analyses[0].imageBase64);
     assert.ok(renders[0].isolatedSubject.startsWith('iVBOR'), 'A real decoded mask creates the second PNG reference');
     await page.getByText(analysis.animalReason, { exact: true }).waitFor();
+    await page.getByTestId('preference-guidance').filter({ hasText: 'Guided by your preferences' }).waitFor();
     assert.equal(await page.getByText('The details that make it yours', { exact: true }).count(), 0, 'Original API response needs no new feature-transfer fields');
     async function assertLayout() {
       const original = await page.getByTestId('original-portrait-column').boundingBox();
@@ -108,6 +111,7 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
     blockAnalysis = false; groupMode = true;
     await page.getByRole('button', { name: 'Create my animal', exact: true }).click();
     await page.getByText('WHY THESE ANIMALS', { exact: true }).waitFor();
+    assert.equal(await page.getByTestId('preference-guidance').count(), 0, 'Baseline results must not claim preference guidance');
     await page.getByTestId('subject-reason-1').getByText('Fox', { exact: true }).waitFor();
     await page.getByTestId('subject-reason-2').getByText('Owl', { exact: true }).waitFor();
     assert.equal(renders.length, 3, 'A group creates one combined image with one click');

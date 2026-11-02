@@ -49,6 +49,31 @@ public static class TeachingRoutes {
             var cases = store.Cases(); return Results.Ok(new { cases, datasetHash = TeachingStore.DatasetHash(cases) });
         });
         routes.MapGet("/memory", (TeachingMemory memory) => Results.Ok(memory.Status()));
+        routes.MapGet("/feedback", (TeachingFeedback feedback) => Results.Ok(feedback.Rounds()));
+        routes.MapGet("/feedback/export", (TeachingFeedback feedback) => Results.File(
+            System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(feedback.Rounds(), TeachingScoring.Json), "application/json", "wildlens-result-feedback.json"));
+        routes.MapGet("/feedback/artworks/{name}", (string name, TeachingFeedback feedback) => {
+            var path = feedback.ArtworkPath(name); return File.Exists(path) ? Results.File(path, "image/png") : Results.NotFound();
+        });
+        routes.MapPost("/feedback/photos", (FeedbackUpload input, TeachingFeedback feedback) => Results.Ok(feedback.Upload(input)));
+        routes.MapPost("/feedback/generate", async (FeedbackGenerate input, TeachingFeedback feedback, IConfiguration config, CancellationToken token) => {
+            if (!WildLensMeta.Ready(config)) throw new TeachingIssue("meta_not_ready", "Meta access is not ready. Existing feedback is saved.", 503);
+            return Results.Ok(await feedback.GenerateAsync(input, token));
+        }).RequireRateLimiting("matching");
+        routes.MapPost("/feedback/review", (FeedbackReview input, TeachingFeedback feedback) => Results.Ok(feedback.Review(input)));
+        routes.MapGet("/suggestions", (TeachingSuggestions suggestions) => Results.Ok(suggestions.Library()));
+        routes.MapGet("/suggestions/export", (TeachingSuggestions suggestions) => Results.File(
+            System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(suggestions.Library(), TeachingScoring.Json), "application/json", "wildlens-animal-choice-drafts.json"));
+        routes.MapGet("/artworks/{name}", (string name, TeachingSuggestions suggestions) => {
+            var path = suggestions.ArtworkPath(name);
+            return File.Exists(path) ? Results.File(path, "image/png") : Results.NotFound();
+        });
+        routes.MapPost("/suggestions/start", (SuggestionStart input, TeachingSuggestions suggestions, IConfiguration config) => {
+            if (!WildLensMeta.Ready(config)) throw new TeachingIssue("meta_not_ready", "Meta access is not ready. Saved choices remain available.", 503);
+            return Results.Ok(suggestions.Start(input));
+        });
+        routes.MapPost("/suggestions/stop", (SuggestionStop input, TeachingSuggestions suggestions) => Results.Ok(suggestions.Stop(input.Id)));
+        routes.MapPost("/suggestions/review", (SuggestionReview input, TeachingSuggestions suggestions) => Results.Ok(suggestions.Review(input)));
         routes.MapPost("/memory/settings", (MemorySettings input, TeachingMemory memory) => { memory.SetEnabled(input.Enabled); return Results.Ok(memory.Status()); });
         routes.MapGet("/memory/export", (TeachingMemory memory) => Results.File(
             System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(memory.Index(), TeachingScoring.Json), "application/json", "wildlens-trait-vectors.json"));
@@ -71,3 +96,4 @@ public static class TeachingRoutes {
         }).RequireRateLimiting("matching");
     }
 }
+public sealed record SuggestionStop(string Id);

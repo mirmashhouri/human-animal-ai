@@ -16,9 +16,7 @@
     "test:meta": "dotnet run --project server/WildLens.Tests",
     "evaluate": "node scripts/evaluate.mjs",
     "test:teaching": "dotnet run --project server/Teaching.Tests",
-    "test:memory": "dotnet run --project server/Memory.Tests"
-  },
-  "devDependencies": {
-    "agent-browser": "0.36.0"
+    "test:memory": "dotnet run --project server/Memory.Tests",
+    "test:feedback": "dotnet run --project server/Feedback.Tests"
   }
 }

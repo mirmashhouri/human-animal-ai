@@ -58,6 +58,18 @@ await meta.RenderAsync(new(encoded,personalized.Ticket,true),default);
 using (var render = JsonDocument.Parse(handler.Bodies.Last())) Check(render.RootElement.GetProperty("prompt").GetString()!.Contains("own smile") &&
     render.RootElement.GetProperty("images").GetArrayLength() == 1 && render.RootElement.GetProperty("images")[0].GetProperty("image_url").GetString() == "data:image/jpeg;base64,"+encoded,
     "Signed personalized rendering hints reach Muse Image without replacing the original reference");
+handler.ChosenAnimal = "Pangolin";
+var openChoice = await meta.InspectAsync(new(encoded,true,Segment:false),default);
+Check(openChoice.Analysis.AnimalName == "Pangolin" && openChoice.Personalization?.Status == "used" &&
+    !store.Cases().Any(c => c.AcceptedAnimals.Contains("Pangolin")), "Retrieved examples do not restrict selection to animals in the teaching set");
+await meta.RenderAsync(new(encoded,openChoice.Ticket,true),default);
+using (var openRender = JsonDocument.Parse(handler.Bodies.Last())) Check(openRender.RootElement.GetProperty("prompt").GetString()!.Contains("Pangolin"),
+    "An unseen species reaches image generation through the normal Suggested path");
+handler.ChosenAnimal = "Bear";
+var localRejection = await meta.InspectAsync(new(encoded,true,Segment:false),default);
+Check(localRejection.Analysis.AnimalName == "Bear" && localRejection.Personalization?.Status == "used", "A rejected animal for one reference is not globally banned for a new portrait");
+Check(openChoice.PromptVersion.Contains(WildLensMeta.MemoryGuidanceVersion), "The lighter guidance is versioned separately from unchanged trait vectors");
+handler.ChosenAnimal = "Horse";
 handler.Profiles = [profile with { Id=1,Position="viewer-left" },profile with { Id=2,Position="viewer-middle" },profile with { Id=3,Position="viewer-right" }];
 var groupMemory = await meta.InspectAsync(new(encoded,true,Segment:false),default);
 Check(handler.Bodies.Last().Contains("viewer-left") && handler.Bodies.Last().Contains("viewer-middle") && handler.Bodies.Last().Contains("viewer-right"),"Group retrieval distributes the context budget across all three clear portraits");
@@ -86,6 +98,7 @@ sealed class MemoryProvider(PortraitProfile profile) : HttpMessageHandler {
     public List<string> Bodies { get; } = []; public bool FailProfile { get; set; }
     public PortraitProfile[] Profiles { get; set; } = [profile];
     public Action? OnProfile { get; set; }
+    public string ChosenAnimal { get; set; } = "Horse";
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken token) {
         var body = await request.Content!.ReadAsStringAsync(token); Bodies.Add(body);
         if (request.RequestUri!.AbsolutePath == "/v1/images/edits") return new(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(new { data = new[] { new { b64_json = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j1ioAAAAASUVORK5CYII=" } } }),Encoding.UTF8,"application/json") };
@@ -95,7 +108,7 @@ sealed class MemoryProvider(PortraitProfile profile) : HttpMessageHandler {
         if (isProfile && FailProfile) return new(HttpStatusCode.TooManyRequests);
         if (isProfile && OnProfile is { } action) { OnProfile = null; action(); }
         var content = isProfile ? JsonSerializer.Serialize(new { subjects = Profiles },TeachingScoring.Json) : JsonSerializer.Serialize(
-            new WildLensAnalysis(true,"A test portrait","Forward head","Simple composition","Horse","Long facial geometry","An illustrated moment",["#112233","#445566","#778899"]),TeachingScoring.Json);
+            new WildLensAnalysis(true,"A test portrait","Forward head","Simple composition",ChosenAnimal,"Long facial geometry","An illustrated moment",["#112233","#445566","#778899"]),TeachingScoring.Json);
         return new(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(new { choices = new[] { new { message = new { content } } } }),Encoding.UTF8,"application/json") };
     }
 }

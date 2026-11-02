@@ -20,7 +20,8 @@ export function PortraitResults({ photo, inspection, artwork, demo, onLoad, onEr
       <View testID="animal-portrait-column" style={s.imageColumn}>
         <Image key={artwork.image} source={{ uri: artwork.image }} style={s.image} resizeMode="contain" onLoad={onLoad} onError={onError}
           accessibilityLabel={demo ? 'Demo animal reference, not generated' : 'Your animal portrait'} />
-        <View style={s.imageCaption}><Text style={s.label}>{analysis.groupPhoto ? 'Your animals' : analysis.animalName}</Text><Text style={s.caption}>{demo ? 'Reference photo · layout demo' : 'Your animal-inspired portrait'}</Text></View>
+        <View style={s.imageCaption}><Text style={s.label}>{analysis.groupPhoto ? 'Your animals' : analysis.animalName}</Text><Text style={s.caption}>{demo ? 'Reference photo · layout demo' : 'Your animal-inspired portrait'}</Text>
+          {!demo && inspection.personalization?.status === 'used' && inspection.personalization.examples > 0 ? <Text testID="preference-guidance" style={s.caption}>Guided by your preferences</Text> : null}</View>
       </View>
     </View>
     <View testID="portrait-details" style={s.details}>

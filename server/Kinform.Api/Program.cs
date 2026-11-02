@@ -6,7 +6,9 @@ using Microsoft.Extensions.FileProviders;
 
 var initializeEnvironment = args.Contains("--init-env", StringComparer.Ordinal);
 var checkConfiguration = args.Contains("--check-config", StringComparer.Ordinal);
-var startupArgs = args.Where(arg => arg is not ("--init-env" or "--check-config")).ToArray();
+var prepareStarterChoices = args.Contains("--prepare-starter-choices", StringComparer.Ordinal);
+var prepareStarterArtworks = args.Contains("--prepare-starter-artworks", StringComparer.Ordinal);
+var startupArgs = args.Where(arg => arg is not ("--init-env" or "--check-config" or "--prepare-starter-choices" or "--prepare-starter-artworks")).ToArray();
 var builder = WebApplication.CreateBuilder(startupArgs);
 if (initializeEnvironment) {
     var previous = new ConfigurationBuilder().AddUserSecrets("kinform-local-prototype").Build();
@@ -35,7 +37,10 @@ builder.Services.AddSingleton<WildLensGate>();
 builder.Services.AddSingleton(_ => new TeachingStore(builder.Configuration["Teaching:DataRoot"] ?? Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "evaluation", "private"))));
 builder.Services.AddSingleton<TeachingAuth>();
 builder.Services.AddSingleton<TeachingMemory>();
+builder.Services.AddSingleton<TeachingSuggestions>();
+builder.Services.AddHostedService(services => services.GetRequiredService<TeachingSuggestions>());
 builder.Services.AddScoped<TeachingBenchmarks>();
+builder.Services.AddScoped<TeachingFeedback>();
 builder.Services.AddHttpClient<WildLensMeta>(client => {
     client.Timeout = TimeSpan.FromSeconds(180);
     client.MaxResponseContentBufferSize = 24 * 1024 * 1024;
@@ -195,6 +200,17 @@ app.MapPost("/api/hybrids", () => Results.Json(new ApiError("hybrid_not_configur
     "Hybrid generation is not connected yet. Your photo comparison is still available."), statusCode: 501));
 app.MapWildLens();
 app.MapTeaching();
-app.Run();
+if (prepareStarterChoices || prepareStarterArtworks) {
+    // Explicit local invocation only; a normal restart never resumes paid work automatically.
+    if (!WildLensMeta.Ready(app.Configuration)) throw new InvalidOperationException("Meta access is not ready. No suggestion calls made.");
+    await app.StartAsync();
+    var starterCases = app.Services.GetRequiredService<TeachingStore>().Cases()
+        .Where(c => !c.Archived && c.Reference.PersonOnly && c.Extra?.ContainsKey("starterPack") == true &&
+            (app.Configuration["Teaching:StarterCaseId"] is not { Length: > 0 } caseId || c.CaseId == caseId))
+        .Take(Math.Clamp(app.Configuration.GetValue<int?>("Teaching:StarterLimit") ?? 100, 1, 100)).Select(c => c.CaseId).ToArray();
+    var batch = app.Services.GetRequiredService<TeachingSuggestions>().Start(new(starterCases, true, prepareStarterArtworks));
+    app.Logger.LogInformation("Explicit starter-choice batch {BatchId}: {Portraits} portraits; kind {Kind}. Completed work is reused; no automatic retries.", batch.Id, batch.Items.Length, batch.Kind);
+    await app.WaitForShutdownAsync();
+} else app.Run();
 
 public partial class Program;

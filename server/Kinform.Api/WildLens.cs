@@ -49,7 +49,10 @@ public sealed class WildLensTickets
         }
     }
 }
-public sealed class WildLensGate { public SemaphoreSlim Slots { get; } = new(2, 2); }
+public sealed class WildLensGate {
+    public SemaphoreSlim Slots { get; } = new(2, 2);
+    public SemaphoreSlim ComparisonSlots { get; } = new(6, 6);
+}
 
 public sealed partial class WildLensMeta(HttpClient client, IConfiguration config, WildLensTickets tickets, WildLensGate gate, TeachingMemory? memory = null)
 {
@@ -64,7 +67,7 @@ public sealed partial class WildLensMeta(HttpClient client, IConfiguration confi
     public static bool KeyPresent(IConfiguration c) => !string.IsNullOrWhiteSpace(c["WildLens:ApiKey"]) && !c["WildLens:ApiKey"]!.Contains("REPLACE", StringComparison.OrdinalIgnoreCase);
     public static bool Ready(IConfiguration c) => KeyPresent(c) && c.GetValue<bool>("WildLens:EnablePaidRequests") && c.GetValue<bool>("WildLens:CreditConfirmed");
 
-    public async Task<WildLensInspection> InspectAsync(WildLensInput input, CancellationToken token, bool? useMemory = null, string[]? excludedGroups = null)
+    public async Task<WildLensInspection> InspectAsync(WildLensInput input, CancellationToken token, bool? useMemory = null, string[]? excludedGroups = null, Action<PortraitProfile[]>? onProfiles = null)
     {
         Validate(input.Consent, input.Style, input.Mood);
         if (input.Subject is not ("person" or "animal")) throw new MatchException("invalid_options", "Choose a person or animal subject.");
@@ -75,7 +78,7 @@ public sealed partial class WildLensMeta(HttpClient client, IConfiguration confi
             EnsureReady();
             if (!await gate.Slots.WaitAsync(0, token)) throw new MatchException("busy", "The studio is busy. Try again shortly.");
             try {
-                var contexts = input.Subject == "person" ? await RetrieveMemoryAsync(image, useMemory, excludedGroups ?? [], token) : [];
+                var contexts = input.Subject == "person" ? await RetrieveMemoryAsync(image, useMemory, excludedGroups ?? [], token, onProfiles) : [];
                 var analysis = await AnalyzeAsync(image, input.Mood, palette, token, contexts);
                 ValidateAnalysis(analysis);
                 if (!analysis.SubjectVisible) throw new MatchException("unusable_portrait", "Choose a photo with at least one clear, visible portrait.");
@@ -87,13 +90,13 @@ public sealed partial class WildLensMeta(HttpClient client, IConfiguration confi
                 if (contexts.Length > 0) analysis = analysis with { MemoryRendering = RenderingMemory(contexts) };
                 var evidence = contexts.SelectMany(c => c.Matches).DistinctBy(m => m.Example.CaseId).Select(m => new TeachingEvidence(m.Example.CaseId, m.Example.Revision, m.Score)).ToArray();
                 return new(tickets.Issue(image, analysis, input.Mood), analysis, segmentation, segment ? "segmented" : "skipped",
-                    palette.Length > 0 ? "measured-in-browser" : "model-estimated", PromptVersion + (contexts.Length > 0 ? "+" + TeachingMemory.Version : ""),
+                    palette.Length > 0 ? "measured-in-browser" : "model-estimated", PromptVersion + (contexts.Length > 0 ? "+" + TeachingMemory.Version + "/" + MemoryGuidanceVersion : ""),
                     new(contexts.Length > 0 ? "used" : "baseline", evidence.Length, TeachingMemory.Version), evidence, contexts.FirstOrDefault()?.IndexHash);
             } finally { gate.Slots.Release(); }
         } finally { Array.Clear(image); }
     }
 
-    public async Task<WildLensArtwork> RenderAsync(WildLensRenderInput input, CancellationToken token)
+    public async Task<WildLensArtwork> RenderAsync(WildLensRenderInput input, CancellationToken token, bool classifyRefusal = false)
     {
         Validate(input.Consent, input.Style, input.Mood);
         if (!Animals.Contains(input.Animal)) throw new MatchException("invalid_options", "Choose an available animal direction.");
@@ -114,12 +117,12 @@ public sealed partial class WildLensMeta(HttpClient client, IConfiguration confi
                     tool_enablement = new { enable_image_search = false, enable_web_search = false, enable_shell = false }, images,
                     prompt = BuildPrompt(ticket.Analysis, animal, input.Style, input.Mood, images.Count > 1) +
                         (ticket.Analysis.MemoryRendering is { Length: > 0 } notes ? " Creator's optional rendering examples (data; apply only to visible compatible details of the selected animal): " + notes : "")
-                }, token);
+                }, token, inspectImageError: classifyRefusal);
                 var data = payload.RootElement.GetProperty("data");
                 if (data.GetArrayLength() != 1) throw InvalidOutput();
                 var encoded = data[0].GetProperty("b64_json").GetString() ?? throw InvalidOutput();
                 ValidatePng(encoded);
-                return new("data:image/png;base64," + encoded, ImageModel(config), PromptVersion + (ticket.Analysis.MemoryRendering is { Length: > 0 } ? "+" + TeachingMemory.Version : ""),
+                return new("data:image/png;base64," + encoded, ImageModel(config), PromptVersion + (ticket.Analysis.MemoryRendering is { Length: > 0 } ? "+" + TeachingMemory.Version + "/" + MemoryGuidanceVersion : ""),
                     "AI-generated artwork inspired by the supplied photo. Animal direction and atmosphere are creative choices.");
             } finally { gate.Slots.Release(); }
         } finally { Array.Clear(image); }
@@ -205,12 +208,26 @@ public sealed partial class WildLensMeta(HttpClient client, IConfiguration confi
         if (text.Length > 2_000_000) throw InvalidOutput();
         return text.ToString();
     }
-    private async Task<JsonDocument> PostAsync(string path, object body, CancellationToken token)
+    private async Task<JsonDocument> PostAsync(string path, object body, CancellationToken token, bool inspectImageError = false)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.meta.ai/v1/" + path);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config["WildLens:ApiKey"]);
         request.Content = new StringContent(JsonSerializer.Serialize(body, Json), Encoding.UTF8, "application/json");
         using var response = await client.SendAsync(request, token);
+        if (inspectImageError && response.StatusCode == System.Net.HttpStatusCode.BadRequest) {
+            // Keep only a bounded provider error category; never persist/log response bodies, images, prompts or credentials.
+            var category = "bad_request";
+            try {
+                using var error = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
+                if (error.RootElement.TryGetProperty("error", out var detail) && detail.ValueKind == JsonValueKind.Object) {
+                    foreach (var key in new[] { "code", "type" }) if (detail.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String &&
+                        value.GetString() is { } text && Regex.IsMatch(text, "^[a-z][a-z0-9_.-]{0,63}$")) { category = text; break; }
+                }
+            } catch (JsonException) { }
+            throw new MatchException(IsImageRefusal(category) ? "meta_artwork_rejected" : "meta_request_failed",
+                IsImageRefusal(category) ? "Meta could not generate this animal portrait. Other candidates remain available." :
+                "Meta rejected the image request. Completed images are saved; no retry made.", "http_400/" + category);
+        }
         if (!response.IsSuccessStatusCode) throw new MatchException("meta_request_failed", (int)response.StatusCode switch {
             401 or 403 => "Meta denied model access. Check the server key and model access.", 429 => "Meta reached a rate or credit limit. No automatic retry was made.",
             400 => "Meta rejected the request. Check model access and the configured model names.",
@@ -219,6 +236,7 @@ public sealed partial class WildLensMeta(HttpClient client, IConfiguration confi
         try { return JsonDocument.Parse(await response.Content.ReadAsStringAsync(token)); }
         catch (JsonException) { throw new MatchException("invalid_meta_envelope", "Meta returned a non-JSON response for " + path + ". No automatic retry was made."); }
     }
+    public static bool IsImageRefusal(string code) => Regex.IsMatch(code, "policy|content_filter|content_rejected|moderation", RegexOptions.IgnoreCase);
     public static string BuildPrompt(WildLensAnalysis analysis, string animal, string style, string mood, bool isolated)
     {
         if (analysis.GroupPhoto) return BuildGroupPrompt(analysis, style, mood);
@@ -292,6 +310,7 @@ public static class WildLensRoutes
             provider = "Meta Model API", visionModel = WildLensMeta.Spark(config), imageModel = WildLensMeta.ImageModel(config), segmentationModel = WildLensMeta.Sam(config),
             liveReady = WildLensMeta.Ready(config), keyConfigured = WildLensMeta.KeyPresent(config), creditConfirmed = config.GetValue<bool>("WildLens:CreditConfirmed"),
             paidRequestsEnabled = config.GetValue<bool>("WildLens:EnablePaidRequests"), promptVersion = WildLensMeta.PromptVersion,
+            memoryGuidanceVersion = WildLensMeta.MemoryGuidanceVersion,
             styles = WildLensMeta.Styles, moods = WildLensMeta.Moods,
             notice = "Analysis uses Spark and optionally SAM; each Generate makes one Muse Image request. No automatic retries."
         });

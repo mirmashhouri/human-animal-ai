@@ -68,6 +68,13 @@ public sealed class TeachingStore {
             metadata["rationaleStatus"] = JsonSerializer.SerializeToElement(item.SelectionCues is { Length: > 0 } ? "supplied" : "not_supplied");
             metadata["trainingStatus"] = JsonSerializer.SerializeToElement("not_trained");
             item = item with { Extra = metadata };
+            // Editing labels/cues or the photo in the advanced editor invalidates the old choice approval.
+            if (item.Preference is { } choice && (choice.ReferenceFile != item.Reference.File ||
+                !item.AcceptedAnimals.SequenceEqual(new[] { choice.Animal }) || !item.SelectionCues.SequenceEqual(choice.Reasons)))
+                item = item with { Preference = null };
+            if (item.Feedback is { } feedback && (feedback.ReferenceFile != item.Reference.File ||
+                !item.AcceptedAnimals.SequenceEqual(new[] { feedback.PreferredAnimal }) || !item.SelectionCues.SequenceEqual(feedback.Observations)))
+                item = item with { Feedback = null };
             Validate(item);
             void Audit(TeachingCase previous) => File.AppendAllText(Path.Combine(StudioRoot, "history.jsonl"),
                 JsonSerializer.Serialize(new { at = item.UpdatedAt, previous }, TeachingScoring.Json) + "\n", new UTF8Encoding(false));
@@ -86,6 +93,26 @@ public sealed class TeachingStore {
         }
     }
     private void Validate(TeachingCase item) {
+        if (item.Feedback is { } feedback) {
+            try { WildLensMeta.ValidateSuggestionProfile(feedback.RetrievalProfile); }
+            catch (JsonException) { throw new TeachingIssue("invalid_feedback", "The feedback retrieval profile is invalid."); }
+            if (item.Preference is not null || feedback.Verdict is not ("agree" or "disagree") || feedback.PhotoHash is null || feedback.PhotoHash.Length != 64 ||
+                feedback.Explanation is null || feedback.Explanation.Length > 500 || feedback.Observations is null ||
+                feedback.Observations.Length > 1 || feedback.Observations.Any(o => string.IsNullOrWhiteSpace(o) || o.Length > 500) ||
+                string.IsNullOrWhiteSpace(feedback.PreferredAnimal) || feedback.PreferredAnimal.Length > 80 ||
+                string.IsNullOrWhiteSpace(feedback.ProposedAnimal) || feedback.ProposedAnimal.Length > 80 ||
+                (feedback.Verdict == "disagree" && string.IsNullOrWhiteSpace(feedback.Explanation)))
+                throw new TeachingIssue("invalid_feedback", "Check the feedback judgment, animal and explanation.");
+        }
+        if (item.Preference is { } preference) {
+            try { WildLensMeta.ValidateSuggestionProfile(preference.RetrievalProfile); }
+            catch (JsonException) { throw new TeachingIssue("invalid_preference", "The saved retrieval profile is invalid."); }
+            if (preference.OfferedChoices is null || preference.OfferedChoices.Length != 3 || preference.Reasons is null ||
+                preference.Reasons.Length is < 1 or > 3 || preference.Reasons.Any(r => string.IsNullOrWhiteSpace(r) || r.Length > 500) ||
+                string.IsNullOrWhiteSpace(preference.Animal) || preference.Animal.Length > 80 || preference.PhotoHash is null || preference.PhotoHash.Length != 64 ||
+                preference.ReasonSource is not ("human-confirmed-ai-reasons" or "human-written-or-edited"))
+                throw new TeachingIssue("invalid_preference", "The confirmed animal choice is incomplete.");
+        }
         if (!Id(item.CaseId) || !Id(item.GroupId) || string.IsNullOrWhiteSpace(item.PersonPosition) || item.PersonPosition.Length > 180 ||
             item.Split is not ("unassigned" or "train" or "validation" or "test") ||
             item.Confidence is not ("unspecified" or "certain" or "alternatives" or "uncertain") || item.CreativeNotes is null || item.CreativeNotes.Length > 4000 ||

@@ -16,7 +16,7 @@ public sealed record MemoryPool(MemoryIndex Index, TeachingCase[] Cases);
 // Transparent, masked trait vectors, not identity embeddings. Unknown ≠ neutral.
 public sealed class TeachingMemory(TeachingStore store) {
     public string PhotoPath(TeachingCase item) => store.PhotoPath(item.Reference.File);
-    public const string Version = "wildlens-trait-memory-v1";
+    public const string Version = "wildlens-trait-memory-v3-feedback";
     public static readonly string[] AppearanceKeys = ["eye_color", "hair_shape", "hair_color", "glasses", "facial_hair", "pose", "clothing"];
     public static readonly TeachingFeature[] Features = [
         new("face_ratio", "Face length", "Short / wide", "Long / narrow"), new("face_roundness", "Face roundness", "Angular", "Round"),
@@ -31,13 +31,27 @@ public sealed class TeachingMemory(TeachingStore store) {
         new("tooth_display", "Visible teeth", "Little / none", "Much"), new("ear_prominence", "Ear prominence", "Close / small", "Prominent")
     ];
     public static string PhotoHash(TeachingStore store, TeachingCase item) => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(store.PhotoPath(item.Reference.File)))).ToLowerInvariant();
+    public static PortraitProfile? ApprovedProfile(TeachingCase c) => c.Preference is { } p && p.ReferenceFile == c.Reference.File &&
+        c.AcceptedAnimals.SequenceEqual(new[] { p.Animal }) && c.SelectionCues.SequenceEqual(p.Reasons) ? p.RetrievalProfile :
+        c.Feedback is { } f && f.ReferenceFile == c.Reference.File && c.AcceptedAnimals.SequenceEqual(new[] { f.PreferredAnimal }) &&
+        c.SelectionCues.SequenceEqual(f.Observations) ? f.RetrievalProfile : null;
+    public static bool HasApprovedProfile(TeachingCase c) => ApprovedProfile(c) is not null;
+    public static string? ApprovedPhotoHash(TeachingCase c) => c.Preference?.PhotoHash ?? c.Feedback?.PhotoHash;
+    public static double? Value(TeachingCase c, string key) {
+        var manual = c.Traits.FirstOrDefault(t => t.Key == key);
+        // Explicit human uncertainty/hidden annotations mask the AI estimate too.
+        return manual is not null ? (manual.Visibility == "clear" ? manual.Value / c.TraitScale : null) :
+            ApprovedProfile(c)?.Features.FirstOrDefault(f => f.Key == key)?.Value / 5;
+    }
+    public static bool Salient(TeachingCase c, string key) => c.SalientFeatures.Contains(key) ||
+        (c.Traits.Length == 0 && c.SalientFeatures.Length == 0 && ApprovedProfile(c)?.SalientFeatures.Contains(key) == true);
     public static bool Indexable(TeachingCase c) => !c.Archived && c.AcceptedAnimals.Length > 0 && c.Reference.PersonOnly &&
-        (c.Traits.Any(t => Features.Any(f => f.Key == t.Key) && t.Visibility == "clear" && t.Value is not null) || c.SalientFeatures.Any(k => Features.Any(f => f.Key == k)));
+        (Features.Any(f => Value(c, f.Key) is not null) || c.SalientFeatures.Any(k => Features.Any(f => f.Key == k)));
     public static bool Eligible(TeachingCase c) => c.Split == "train" && Indexable(c);
     public static MemoryIndex WriteIndex(TeachingStore store, TeachingCase[] cases) {
-        var vectors = cases.Where(Indexable).Select(c => new MemoryVector(c.CaseId, c.Revision, c.GroupId, c.Split, PhotoHash(store, c),
-            Features.Select(f => c.Traits.FirstOrDefault(t => t.Key == f.Key && t.Visibility == "clear")?.Value / c.TraitScale).ToArray(),
-            Features.Select(f => c.SalientFeatures.Contains(f.Key)).ToArray())).ToArray();
+        var vectors = cases.Where(Indexable).Where(c => !HasApprovedProfile(c) || ApprovedPhotoHash(c) == PhotoHash(store, c))
+            .Select(c => new MemoryVector(c.CaseId, c.Revision, c.GroupId, c.Split, PhotoHash(store, c),
+            Features.Select(f => Value(c, f.Key)).ToArray(), Features.Select(f => Salient(c, f.Key)).ToArray())).ToArray();
         var index = new MemoryIndex(Version, TeachingStore.DatasetHash(cases), DateTimeOffset.UtcNow, vectors);
         TeachingStore.Atomic(Path.Combine(store.StudioRoot, "memory-index.json"), JsonSerializer.Serialize(index, TeachingScoring.Json)); return index;
     }
@@ -85,6 +99,6 @@ public sealed class TeachingMemory(TeachingStore store) {
         var index = Index(); var all = store.Cases(); return new { enabled = Settings().Enabled, version = Version,
             indexedExamples = index.Vectors.Count(v => v.Split == "train"), vectorCount = index.Vectors.Length, labeledExamples = all.Count(c => !c.Archived && c.AcceptedAnimals.Length > 0),
             totalExamples = all.Count(c => !c.Archived), index.DatasetHash, index.UpdatedAt,
-            notice = "Only labeled training cases with a single-person reference and at least one rated or standout feature are retrieved. No fine-tuning. Saving makes no Meta calls." };
+            notice = "Only confirmed/labeled training portraits are retrieved: manual features or an AI geometry profile attached to your confirmed choice. Draft suggestions never enter memory. No fine-tuning. Saving a choice makes no Meta calls." };
     }
 }

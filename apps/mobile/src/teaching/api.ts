@@ -15,6 +15,8 @@ export const cases = () => call<{ cases: Example[]; datasetHash: string }>('case
 export const save = (item: Example) => call<Example>('cases/save', { case: item, expectedRevision: item.revision });
 export const runs = () => call<Run[]>('runs');
 export const photoUrl = (file: string) => base + 'photos/' + encodeURIComponent(file.split('/').at(-1) ?? '');
+export const artworkUrl = (file: string) => base + 'artworks/' + encodeURIComponent(file);
+export const feedbackArtworkUrl = (file: string) => base + 'feedback/artworks/' + encodeURIComponent(file);
 export const upload = (imageBase64: string) => call<{ file: string }>('photos', { imageBase64 });
 export const importRun = (name: string, version: string, caseIds: string[], predictions: Prediction[]) => call<Run>('runs/import', { name, version, caseIds, predictions });
 export const compare = (a: string, b: string) => call<Comparison>(`runs/compare?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`);

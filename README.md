@@ -14,15 +14,18 @@ The backend remains ASP.NET Core 10, reusing the working project instead of rewr
 
 ## Start on Windows
 
-Prerequisites: Node 22.20+ (Node 24 LTS recommended), npm and .NET 10 SDK.
+Prerequisites: Node 22.20 or later, npm and .NET 10 SDK. Node 22.20 works for the web app; the optional legacy browser-testing CLI is not part of the normal install.
 
 ```powershell
 cd C:\programming\human-animal-ai
-npm ci
 .\scripts\dev.ps1
 ```
 
 Open **http://localhost:8093**. API: **http://localhost:5086**.
+
+The launcher installs pinned dependencies with `npm ci` when needed, checks the API before opening the web preview, and reuses running services. Keep its terminal open; Ctrl+C stops the foreground preview and the API started by that launcher. `scripts/dev.ps1 -Background` starts hidden local servers with logs in `.artifacts/dev-*.log`.
+
+For a deliberate clean reinstall, stop the web preview first, then run `npm ci`. If a previous install was interrupted, the launcher preserves the incomplete `node_modules` folder in `.artifacts/npm-install-leftovers-*` before reinstalling. Code, `.env` and `evaluation/private` are not moved or deleted. Do not run dependency installation while Metro is using the same folder.
 
 Or run two terminals: `npm run api` and `npm run web`. The local layout demo works without a key, performs no image analysis and is explicitly labeled. It shows a bundled animal reference photo, not a generated transformation.
 
@@ -79,7 +82,7 @@ npm run web:build
 
 - Browser studio is the primary verified experience. Native image picking/sharing is retained; pixel-mask extraction runs on web and is skipped automatically on native. Native device builds are not yet verified.
 - Colors and animal similarities are creative directions. The app does not identify people, infer personality or diagnose emotion from appearance.
-- Portraits/results are not persisted by the backend. The browser holds the current session; original uploads, resized photos and provider-side handling remain subject to their respective storage/retention behavior. Provider zero retention is not promised.
+- Public-studio portraits/results are held in the browser session rather than persisted by the backend. Private teaching references, generated comparison PNGs and confirmed feedback are saved under `evaluation/private/`. Provider-side storage/retention remains subject to its terms; zero retention is not promised.
 - Signed analysis tickets are bound to the photo and expire after 15 minutes or a server restart. The server is restricted to local access by default.
 - No public deployment, accounts, gallery, production payment controls or app-store submission has been performed. Contest reuse and submission requirements must be checked against the final participant rules.
 
@@ -95,3 +98,11 @@ npm run web:build
 ### Fast teaching and RAG memory
 
 The private teaching studio now includes 100 attributed, unlabeled starter portraits, bilingual animal search, 20 quick feature sliders, standout checkboxes, Save & next, persistent vectors and optional runtime retrieval. See [the personalization guide](docs/PERSONALIZATION.md). No fine-tuning or automatic starter labels.
+
+### Choice-based teaching
+
+The **Animal choices** tab compares three generated Meta animal portraits with the original, with three short reason phrases and a custom fourth choice. Confirmed choices and edited reasons feed memory without sliders. Drafts remain separate from human labels. Resumable preparation saves three Muse Image edits per photo and reuses completed PNGs and short reasons. See [the animal-choice guide](docs/ANIMAL-CHOICES.md). `dotnet run --project server/Suggestions.Tests` verifies this flow with simulated provider responses.
+
+### Result feedback
+
+The default **Result feedback** tab offers 100 new attributed portraits or a photo upload. Generate one animal using the latest preference context, then Agree or Disagree. Disagree requires a preferred animal and explanation. Save & next updates retrieval immediately without more model calls; unreviewed guesses never teach the app. Feedback remains person-specific and allows any animal for other portraits. See [the result-feedback guide](docs/RESULT-FEEDBACK.md). `dotnet run --project server/Feedback.Tests` checks generation, corrections, retrieval, persistence and failure handling with simulated Meta responses.
