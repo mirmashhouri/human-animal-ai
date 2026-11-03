@@ -30,7 +30,7 @@ export type Metrics = { cases: number; covered: number; missing: number; groups:
 export type Run = { id: string; name: string; version: string; source: string; createdAt: string; datasetHash: string; cases: Snapshot[]; predictions: Prediction[]; metrics: Metrics; status: string };
 export type Comparison = { comparableCases: number; excludedCases: number; a: Metrics; b: Metrics; top1Delta: number | null };
 export type Status = { configured: boolean; authenticated: boolean; metaReady: boolean; promptVersion: string };
-export type MemoryStatus = { enabled: boolean; version: string; indexedExamples: number; labeledExamples: number; totalExamples: number; datasetHash: string; updatedAt: string; notice: string };
+export type MemoryStatus = { enabled: boolean; preferenceWeight?: number; version: string; indexedExamples: number; labeledExamples: number; totalExamples: number; datasetHash: string; updatedAt: string; notice: string };
 export const traitLabels: [string, string][] = [
   ['face_ratio', 'Face height / width'], ['face_roundness', 'Face roundness'], ['forehead_width', 'Forehead width'], ['cheek_width', 'Cheek width'], ['jaw_width', 'Jaw width'],
   ['cheek_fullness', 'Cheek fullness'], ['jaw_taper', 'Jaw taper'], ['chin_width', 'Chin width'], ['chin_pointedness', 'Chin pointedness'], ['lower_face_height', 'Lower-face height'],

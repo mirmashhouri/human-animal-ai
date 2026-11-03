@@ -10,7 +10,8 @@ public sealed record MemorySettings(bool Enabled = true);
 public sealed record MemoryMatch(TeachingCase Example, double Score);
 public sealed record PortraitFeature(string Key, double? Value);
 public sealed record PortraitProfile(int Id, string Position, PortraitFeature[] Features, string[] SalientFeatures);
-public sealed record MemoryContext(PortraitProfile Profile, MemoryMatch[] Matches, string IndexHash);
+public sealed record AnimalCandidate(string AnimalName, double VisualScore, string AnimalReason, string Caption, string[] Aliases);
+public sealed record MemoryContext(PortraitProfile Profile, MemoryMatch[] Matches, string IndexHash, AnimalCandidate[]? Candidates = null);
 public sealed record MemoryPool(MemoryIndex Index, TeachingCase[] Cases);
 
 // Transparent, masked trait vectors, not identity embeddings. Unknown ≠ neutral.
@@ -95,10 +96,10 @@ public sealed class TeachingMemory(TeachingStore store) {
         }
         return result.OrderByDescending(r => r.Score).ThenBy(r => r.Example.CaseId).DistinctBy(r => r.Example.GroupId).Take(Math.Clamp(take, 1, 5)).ToArray();
     }
-    public object Status() {
+    public object Status(double preferenceWeight = .15) {
         var index = Index(); var all = store.Cases(); return new { enabled = Settings().Enabled, version = Version,
             indexedExamples = index.Vectors.Count(v => v.Split == "train"), vectorCount = index.Vectors.Length, labeledExamples = all.Count(c => !c.Archived && c.AcceptedAnimals.Length > 0),
-            totalExamples = all.Count(c => !c.Archived), index.DatasetHash, index.UpdatedAt,
+            totalExamples = all.Count(c => !c.Archived), index.DatasetHash, index.UpdatedAt, preferenceWeight,
             notice = "Only confirmed/labeled training portraits are retrieved: manual features or an AI geometry profile attached to your confirmed choice. Draft suggestions never enter memory. No fine-tuning. Saving a choice makes no Meta calls." };
     }
 }

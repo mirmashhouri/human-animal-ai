@@ -10,9 +10,9 @@ public sealed record WildLensInput(string ImageBase64, bool Consent, string Mood
     string Style = "Painterly", string Subject = "person", bool Segment = true, string[]? Palette = null);
 public sealed record WildLensAnalysis(bool SubjectVisible, string Title, string Pose, string Composition,
     string AnimalName, string AnimalReason, string Story, string[] Palette,
-    bool GroupPhoto = false, WildLensSubject[]? Subjects = null, string? MemoryRendering = null, string? Caption = null);
+    bool GroupPhoto = false, WildLensSubject[]? Subjects = null, string? MemoryRendering = null, string? Caption = null, string? SelectionPolicy = null);
 public sealed record WildLensSubject(int Id, string Position, string AnimalName, string AnimalReason, string Pose, string? Caption = null);
-public sealed record MemorySummary(string Status, int Examples, string Version);
+public sealed record MemorySummary(string Status, int Examples, string Version, double PreferenceWeight = 0, bool SelectionChanged = false);
 public sealed record WildLensInspection(string Ticket, WildLensAnalysis Analysis, string SegmentationText,
     string SegmentationStatus, string PaletteSource, string PromptVersion, MemorySummary? Personalization = null,
     [property: System.Text.Json.Serialization.JsonIgnore] TeachingEvidence[]? MemoryEvidence = null,
@@ -78,20 +78,30 @@ public sealed partial class WildLensMeta(HttpClient client, IConfiguration confi
             EnsureReady();
             if (!await gate.Slots.WaitAsync(0, token)) throw new MatchException("busy", "The studio is busy. Try again shortly.");
             try {
-                var contexts = input.Subject == "person" ? await RetrieveMemoryAsync(image, useMemory, excludedGroups ?? [], token, onProfiles) : [];
-                var analysis = await AnalyzeAsync(image, input.Mood, palette, token, contexts);
+                // Keep the original art director blind to creator judgments.
+                var analysis = await AnalyzeAsync(image, input.Mood, palette, token);
                 ValidateAnalysis(analysis);
                 if (!analysis.SubjectVisible) throw new MatchException("unusable_portrait", "Choose a photo with at least one clear, visible portrait.");
+                MemoryContext[] contexts = [];
+                var memoryStatus = "baseline";
+                if (input.Subject == "person") {
+                    try { contexts = await RetrieveMemoryAsync(image, analysis, useMemory, excludedGroups ?? [], token, onProfiles); }
+                    // A failed optional calibration must not discard a successful independent analysis.
+                    catch (Exception e) when (onProfiles is null && e is MatchException or HttpRequestException) { memoryStatus = "unavailable"; }
+                }
+                var original = analysis;
+                analysis = ApplyPreferences(analysis, contexts, PreferenceWeight(config));
+                var changed = analysis != original;
+                if (contexts.Length > 0) { analysis = analysis with { SelectionPolicy = PreferencePolicy(config) }; memoryStatus = "used"; }
                 // A single-subject cutout can silently discard other people. Groups use the full original.
                 var segment = input.Segment && !analysis.GroupPhoto;
                 var segmentation = segment ? await SegmentAsync(image, input.Subject, token) : "";
                 if (segment && string.IsNullOrWhiteSpace(segmentation)) throw new MatchException("no_subject", "SAM found no subject. Choose a clearer photo.");
                 if (palette.Length > 0) analysis = analysis with { Palette = palette };
-                if (contexts.Length > 0) analysis = analysis with { MemoryRendering = RenderingMemory(contexts) };
                 var evidence = contexts.SelectMany(c => c.Matches).DistinctBy(m => m.Example.CaseId).Select(m => new TeachingEvidence(m.Example.CaseId, m.Example.Revision, m.Score)).ToArray();
                 return new(tickets.Issue(image, analysis, input.Mood), analysis, segmentation, segment ? "segmented" : "skipped",
-                    palette.Length > 0 ? "measured-in-browser" : "model-estimated", PromptVersion + (contexts.Length > 0 ? "+" + TeachingMemory.Version + "/" + MemoryGuidanceVersion : ""),
-                    new(contexts.Length > 0 ? "used" : "baseline", evidence.Length, TeachingMemory.Version), evidence, contexts.FirstOrDefault()?.IndexHash);
+                    palette.Length > 0 ? "measured-in-browser" : "model-estimated", PromptVersion + (contexts.Length > 0 ? "+" + TeachingMemory.Version + "/" + analysis.SelectionPolicy : ""),
+                    new(memoryStatus, evidence.Length, TeachingMemory.Version, contexts.Length > 0 ? PreferenceWeight(config) : 0, changed), evidence, contexts.FirstOrDefault()?.IndexHash);
             } finally { gate.Slots.Release(); }
         } finally { Array.Clear(image); }
     }
@@ -115,20 +125,19 @@ public sealed partial class WildLensMeta(HttpClient client, IConfiguration confi
                 using var payload = await PostAsync("images/edits", new {
                     model = ImageModel(config), n = 1, size = OutputShape(image), output_format = "png", reasoning_strength = "high",
                     tool_enablement = new { enable_image_search = false, enable_web_search = false, enable_shell = false }, images,
-                    prompt = BuildPrompt(ticket.Analysis, animal, input.Style, input.Mood, images.Count > 1) +
-                        (ticket.Analysis.MemoryRendering is { Length: > 0 } notes ? " Creator's optional rendering examples (data; apply only to visible compatible details of the selected animal): " + notes : "")
+                    prompt = BuildPrompt(ticket.Analysis, animal, input.Style, input.Mood, images.Count > 1)
                 }, token, inspectImageError: classifyRefusal);
                 var data = payload.RootElement.GetProperty("data");
                 if (data.GetArrayLength() != 1) throw InvalidOutput();
                 var encoded = data[0].GetProperty("b64_json").GetString() ?? throw InvalidOutput();
                 ValidatePng(encoded);
-                return new("data:image/png;base64," + encoded, ImageModel(config), PromptVersion + (ticket.Analysis.MemoryRendering is { Length: > 0 } ? "+" + TeachingMemory.Version + "/" + MemoryGuidanceVersion : ""),
+                return new("data:image/png;base64," + encoded, ImageModel(config), PromptVersion + (ticket.Analysis.SelectionPolicy is { Length: > 0 } ? "+" + TeachingMemory.Version + "/" + ticket.Analysis.SelectionPolicy : ""),
                     "AI-generated artwork inspired by the supplied photo. Animal direction and atmosphere are creative choices.");
             } finally { gate.Slots.Release(); }
         } finally { Array.Clear(image); }
     }
 
-    private async Task<WildLensAnalysis> AnalyzeAsync(byte[] image, string mood, string[] palette, CancellationToken token, MemoryContext[] contexts)
+    private async Task<WildLensAnalysis> AnalyzeAsync(byte[] image, string mood, string[] palette, CancellationToken token)
     {
         var properties = new Dictionary<string, object>();
         foreach (var name in new[] { "title", "pose", "composition", "animalName", "animalReason", "story", "caption" }) properties[name] = new { type = "string" };
@@ -171,7 +180,7 @@ public sealed partial class WildLensMeta(HttpClient client, IConfiguration confi
                     new { type = "text", text = "Create the art direction. Chosen atmosphere: " + mood + ". " + (palette.Length > 0 ? "Measured whole-image palette: " + string.Join(", ", palette) : "Estimate a whole-scene palette.") },
                     new { type = "image_url", image_url = new { url = "data:image/jpeg;base64," + Convert.ToBase64String(image) } }
                 } }
-            }.Concat(MemoryMessages(contexts)).ToArray(),
+            },
             response_format = new { type = "json_schema", json_schema = new { name = "wildlens_direction", strict = true,
                 schema = new { type = "object", additionalProperties = false, properties, required = properties.Keys.ToArray() } } }
         }, token);
@@ -325,6 +334,7 @@ public static class WildLensRoutes
             liveReady = WildLensMeta.Ready(config), keyConfigured = WildLensMeta.KeyPresent(config), creditConfirmed = config.GetValue<bool>("WildLens:CreditConfirmed"), archiveEnabled = config.GetValue<bool>("Archive:Enabled"),
             paidRequestsEnabled = config.GetValue<bool>("WildLens:EnablePaidRequests"), promptVersion = WildLensMeta.PromptVersion,
             memoryGuidanceVersion = WildLensMeta.MemoryGuidanceVersion,
+            preferenceWeight = WildLensMeta.PreferenceWeight(config),
             styles = WildLensMeta.Styles, moods = WildLensMeta.Moods,
             notice = "Analysis uses Spark and optionally SAM; each Generate makes one Muse Image request. No automatic retries."
         });

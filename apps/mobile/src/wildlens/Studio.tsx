@@ -10,6 +10,7 @@ import { createPortrait, type CreationStage } from './pipeline';
 import { exportArtwork, serializeArtwork } from './export';
 import { PortraitResults } from './Results';
 import { CameraCapture } from './CameraCapture';
+import { CreationLoading } from './CreationLoading';
 import type { CameraPhoto } from './cameraTypes';
 import type { Artwork, Inspection, StudioConfig, StudioPhoto } from './types';
 import { uiFontFamily, socialColors as c } from './theme';
@@ -50,11 +51,15 @@ export function WildLensStudio() {
   const resultRef = useRef<View>(null);
   const scrollRef = useRef<ScrollView>(null);
   const busy = phase !== 'idle';
+  const creating = phase === 'analyzing' || phase === 'isolating' || phase === 'generating';
   const complete = Boolean(photo && inspection && artwork);
   const compact = width < 600;
   const panelPadding = compact ? 14 : 20;
   const previewWidth = Math.max(1, Math.min(620, width - 36) - panelPadding * 2 - 2);
   const previewHeight = photo ? Math.min(previewWidth / ((photo.width ?? 1) / (photo.height ?? 1)), Math.max(96, Math.min(440, height - 350))) : 0;
+  const compactLoading = compact || height < 600;
+  const comparisonColumnWidth = Math.max(1, (Math.min(1000, width - 36) - 36) / 2);
+  const creationHeight = Math.min(Math.max(comparisonColumnWidth / ((photo?.width ?? 1) / (photo?.height ?? 1)), compactLoading ? 240 : 360), Math.max(240, Math.min(500, height - 220)));
   useEffect(() => {
     const controller = new AbortController(); setConfig(null);
     const timeout = setTimeout(() => controller.abort(), 6000);
@@ -150,7 +155,15 @@ export function WildLensStudio() {
       {!photo ? <Text style={s.intro}>One photo. One click. An animal portrait with the details that make it yours.</Text> : null}</View>
     {showProcess ? <View style={s.process}><Text style={s.body}>Upload a clear photo, then choose Create my animal. Each clear face gets its own animal inspiration. Muse Image creates one portrait, keeping your group together in the same positions.</Text>
       <Text style={s.caption}>Powered by Meta’s Muse Spark, SAM and Muse Image. Your photo is sent for processing only when you choose to generate.</Text></View> : null}
-    {!complete ? <View testID="upload-panel" style={[s.uploadPanel, { padding: panelPadding, gap: compact ? 12 : 17 }]}>
+    {creating && photo ? <View testID="creation-comparison" style={s.creationComparison}>
+      <View testID="creation-original-column" style={[s.creationColumn, { height: creationHeight }]}>
+        <Image source={{ uri: photo.uri }} accessibilityLabel="Your original portrait" style={s.creationOriginal} resizeMode="contain" />
+      </View>
+      <View testID="creation-animal-column" style={[s.creationColumn, { height: creationHeight, backgroundColor: c.paper }]}>
+        <CreationLoading stage={phase} compact={compactLoading} onStop={() => operation.current?.abort()} />
+      </View>
+    </View> : null}
+    {!complete && !creating ? <View testID="upload-panel" style={[s.uploadPanel, { padding: panelPadding, gap: compact ? 12 : 17 }]}>
       <Pressable disabled={busy} accessibilityRole="button" accessibilityLabel={photo ? 'Change your photo' : 'Upload a photo'} onPress={() => void choosePhoto()} style={[s.photoWell, photo && { borderStyle: 'solid', minHeight: 0 }]}>
         {photo ? <Image source={{ uri: photo.uri }} accessibilityLabel="Your uploaded photo" style={[s.preview, { height: previewHeight }]} resizeMode="contain" /> : <View style={[s.empty, compact && { minHeight: Math.min(270, height * 0.35), padding: 16 }]}>
           <LinearGradient colors={gradient} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={s.uploadRing}><View style={s.uploadIcon}><Ionicons name="images-outline" size={32} color={c.text} /></View></LinearGradient><Text style={s.uploadTitle}>Start with you.</Text><Text style={[s.body, { textAlign: 'center' }]}>Good light. Clear faces. Solo or together.</Text>
@@ -161,8 +174,7 @@ export function WildLensStudio() {
       {photo ? <><Action icon="sparkles-outline" label="Create my animal" disabled={busy || !config?.liveReady} onPress={() => void generate()} />
         <Text style={[s.caption, { textAlign: 'center' }]}>By generating, you confirm you have permission to use this photo and send it to Meta for analysis and image creation.</Text></> : null}
       {!config?.liveReady ? <View style={{ alignItems: 'center' }}><Text style={[s.caption, { textAlign: 'center' }]}>The studio connection is unavailable.</Text><Pressable accessibilityRole="button" onPress={() => setConnectionAttempt(value => value + 1)}><Text style={s.link}>Retry connection</Text></Pressable></View> : null}
-      {busy && phase !== 'exporting' ? <View accessibilityLiveRegion="polite" style={s.progress}><ActivityIndicator color={c.blue} /><Text style={[s.body, { flex: 1 }]}>{progress[phase as Exclude<Phase, 'idle'>]}</Text>
-        {phase !== 'picking' ? <Pressable accessibilityRole="button" onPress={() => operation.current?.abort()}><Text style={s.link}>Stop</Text></Pressable> : null}</View> : null}
+      {phase === 'picking' ? <View accessibilityLiveRegion="polite" style={s.progress}><ActivityIndicator color={c.blue} /><Text style={s.body}>{progress.picking}</Text></View> : null}
     </View> : null}
     {complete && photo && inspection && artwork ? <>
       <View style={s.resultActions}><Action icon="download-outline" label="Save image" disabled={busy || !artReady} onPress={() => void download()} />
@@ -183,6 +195,9 @@ const s = StyleSheet.create({
   brand: { flexDirection: 'row', alignItems: 'center', gap: 9 }, brandMark: { height: 34, width: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }, brandName: { fontFamily: uiFontFamily, fontSize: 26, fontWeight: '700', letterSpacing: -1, color: c.text },
   hero: { paddingVertical: 32, gap: 11 }, eyebrow: { fontFamily: uiFontFamily, fontSize: 10, color: c.muted, fontWeight: '600', letterSpacing: 1.3 }, headline: { fontFamily: uiFontFamily, fontWeight: '700', color: c.text, letterSpacing: -1 }, intro: { fontFamily: uiFontFamily, color: c.muted, fontSize: 15, lineHeight: 24, maxWidth: 600 },
   uploadPanel: { width: '100%', maxWidth: 620, alignSelf: 'center', padding: 20, gap: 17, borderRadius: 12, borderWidth: 1, borderColor: c.border, backgroundColor: c.paper },
+  creationComparison: { flexDirection: 'row', gap: 10, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: c.border, backgroundColor: c.paper },
+  creationColumn: { flex: 1, minWidth: 0, overflow: 'hidden', borderRadius: 6, backgroundColor: c.background },
+  creationOriginal: { width: '100%', height: '100%' },
   photoWell: { minHeight: 280, borderWidth: 1, borderStyle: 'dashed', borderColor: c.border, borderRadius: 7, backgroundColor: '#fafafa', overflow: 'hidden' }, preview: { width: '100%' },
   empty: { alignItems: 'center', justifyContent: 'center', gap: 14, padding: 25, minHeight: 310 }, uploadRing: { height: 76, width: 76, borderRadius: 38, padding: 3 }, uploadIcon: { flex: 1, backgroundColor: c.paper, alignItems: 'center', justifyContent: 'center', borderRadius: 36 },
   uploadTitle: { fontFamily: uiFontFamily, fontSize: 24, fontWeight: '600', color: c.text }, uploadPill: { paddingHorizontal: 14, paddingVertical: 2, flexDirection: 'row', alignItems: 'center', gap: 4 },

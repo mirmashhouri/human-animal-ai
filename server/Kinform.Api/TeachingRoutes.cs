@@ -48,7 +48,7 @@ public static class TeachingRoutes {
         routes.MapGet("/cases", (TeachingStore store) => {
             var cases = store.Cases(); return Results.Ok(new { cases, datasetHash = TeachingStore.DatasetHash(cases) });
         });
-        routes.MapGet("/memory", (TeachingMemory memory) => Results.Ok(memory.Status()));
+        routes.MapGet("/memory", (TeachingMemory memory, IConfiguration config) => Results.Ok(memory.Status(WildLensMeta.PreferenceWeight(config))));
         routes.MapGet("/feedback", (TeachingFeedback feedback) => Results.Ok(feedback.Rounds()));
         routes.MapGet("/feedback/export", (TeachingFeedback feedback) => Results.File(
             System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(feedback.Rounds(), TeachingScoring.Json), "application/json", "wildlens-result-feedback.json"));
@@ -74,7 +74,7 @@ public static class TeachingRoutes {
         });
         routes.MapPost("/suggestions/stop", (SuggestionStop input, TeachingSuggestions suggestions) => Results.Ok(suggestions.Stop(input.Id)));
         routes.MapPost("/suggestions/review", (SuggestionReview input, TeachingSuggestions suggestions) => Results.Ok(suggestions.Review(input)));
-        routes.MapPost("/memory/settings", (MemorySettings input, TeachingMemory memory) => { memory.SetEnabled(input.Enabled); return Results.Ok(memory.Status()); });
+        routes.MapPost("/memory/settings", (MemorySettings input, TeachingMemory memory, IConfiguration config) => { memory.SetEnabled(input.Enabled); return Results.Ok(memory.Status(WildLensMeta.PreferenceWeight(config))); });
         routes.MapGet("/memory/export", (TeachingMemory memory) => Results.File(
             System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(memory.Index(), TeachingScoring.Json), "application/json", "wildlens-trait-vectors.json"));
         routes.MapPost("/cases/save", (TeachingSave input, TeachingStore store) => Results.Ok(store.Save(input.Case, input.ExpectedRevision)));

@@ -53,7 +53,7 @@ Check(corrected.AcceptedAnimals.SequenceEqual(new[] { "Horse" }) && corrected.Re
 Check(corrected.Feedback?.Explanation == "Long face and visible teeth" && corrected.Traits.Length == 0 && corrected.Preference is null, "Human correction stays separate from AI geometry and three-choice feedback");
 Check(memory.Index().Vectors.Length == 2 && TeachingMemory.Eligible(corrected), "Saving a correction updates the live vector memory immediately");
 var next = await feedback.GenerateAsync(new(two.CaseId, two.Revision, true), default);
-Check(handler.Bodies.Any(b => b.Contains("Long face and visible teeth") && b.Contains("generatedResultFeedback")), "The next portrait receives the saved correction as relevant RAG context");
+Check(next.Evidence?.Any(e => e.CaseId == corrected.CaseId) == true && handler.Bodies.All(b => !b.Contains("Long face and visible teeth")), "The next portrait uses saved correction evidence locally without leaking unbounded feedback into Meta prompts");
 var calls = handler.Bodies.Count;
 var agreed = feedback.Review(new(next.Id, two.Revision, "agree", null, null));
 Check(agreed.AcceptedAnimals.SequenceEqual(new[] { "Bear" }) && agreed.SelectionCues.Length == 0 && agreed.Feedback?.Observations.Length == 0,
@@ -99,7 +99,7 @@ sealed class FeedbackProvider : HttpMessageHandler {
         if (request.RequestUri?.AbsolutePath != "/v1/chat/completions") throw new Exception("Unexpected model endpoint");
         using var json = JsonDocument.Parse(body); var profile = json.RootElement.GetProperty("response_format").GetProperty("json_schema").GetProperty("name").GetString() == "wildlens_retrieval_profile";
         var profiles = Group ? new[] { new PortraitProfile(1, "left", Features(), []), new PortraitProfile(2, "right", Features(), []) } : new[] { new PortraitProfile(1, "one person", Features(), ["face_ratio"]) };
-        var text = profile ? JsonSerializer.Serialize(new { subjects = profiles }, TeachingScoring.Json) : JsonSerializer.Serialize(new WildLensAnalysis(true, "A portrait", "Forward pose", "Simple scene", "Bear", "A rounded visible silhouette", "A quiet scene", ["#112233", "#445566", "#778899"]), TeachingScoring.Json);
+        var text = profile ? JsonSerializer.Serialize(new { subjects = profiles.Select(p => new { p.Id, p.Position, p.Features, p.SalientFeatures, candidates = new[] { new AnimalCandidate("Bear",1,"A rounded silhouette","A dreamy Bear",[]) } }) }, TeachingScoring.Json) : JsonSerializer.Serialize(new WildLensAnalysis(true, "A portrait", "Forward pose", "Simple scene", "Bear", "A rounded visible silhouette", "A quiet scene", ["#112233", "#445566", "#778899"], GroupPhoto:Group, Subjects:Group ? profiles.Select(p => new WildLensSubject(p.Id,p.Position,"Bear","A rounded silhouette","Forward pose","A dreamy Bear")).ToArray() : []), TeachingScoring.Json);
         return new(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(new { choices = new[] { new { message = new { content = text } } } }), Encoding.UTF8, "application/json") };
     }
 }
