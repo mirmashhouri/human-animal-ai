@@ -169,9 +169,9 @@ export function WildLensStudio() {
         <Action secondary label="Start over" disabled={busy} onPress={reset} /></View>
       <View ref={resultRef} collapsable={false}><PortraitResults photo={photo} inspection={inspection} artwork={artwork} onLoad={() => { setArtReady(true); void saveServerCopy(); }}
         onError={() => { setArtwork(null); setArtReady(false); setError('One of the portraits could not be displayed. No automatic retry was made.'); }} /></View>
-      {archiveStatus === 'saving' ? <Text accessibilityLiveRegion="polite" style={[s.caption, { marginTop: 12 }]}>Saving a server copy…</Text> : null}
+      {/* {archiveStatus === 'saving' ? <Text accessibilityLiveRegion="polite" style={[s.caption, { marginTop: 12 }]}>Saving a server copy…</Text> : null}
       {archiveStatus === 'saved' ? <Text testID="server-save-status" accessibilityLiveRegion="polite" style={[s.caption, { marginTop: 12 }]}>Server copy saved.</Text> : null}
-      {archiveStatus === 'failed' ? <View style={{ marginTop: 12 }}><Text accessibilityRole="alert" style={s.caption}>{archiveError}</Text><Pressable accessibilityRole="button" onPress={() => void saveServerCopy()}><Text style={s.link}>Retry server save</Text></Pressable></View> : null}
+      {archiveStatus === 'failed' ? <View style={{ marginTop: 12 }}><Text accessibilityRole="alert" style={s.caption}>{archiveError}</Text><Pressable accessibilityRole="button" onPress={() => void saveServerCopy()}><Text style={s.link}>Retry server save</Text></Pressable></View> : null} */}
     </> : null}
     {error ? <View accessibilityRole="alert" style={s.error}><Ionicons name="alert-circle-outline" size={21} color="#8f3e2d" /><Text style={{ color: '#8f3e2d', flex: 1, lineHeight: 22 }}>{error}</Text></View> : null}
     {notice ? <Text accessibilityLiveRegion="polite" style={[s.caption, { marginTop: 16 }]}>{notice}</Text> : null}

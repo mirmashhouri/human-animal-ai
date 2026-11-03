@@ -9,6 +9,8 @@ using Microsoft.Extensions.Logging;
 using System.Net;
 using System.Net.Http.Json;
 
+if (args.Contains("--browser-host")) { await ArchiveBrowserHost.RunAsync(); return; }
+
 var root = Path.Combine(Directory.GetCurrentDirectory(), ".artifacts", "archive-check-" + Guid.NewGuid().ToString("N"));
 var png = File.ReadAllBytes(Path.Combine(Directory.GetCurrentDirectory(), "apps/mobile/assets/wildfie-icon.png"));
 var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> {
