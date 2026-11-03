@@ -1,0 +1,24 @@
+# This Vercel project builds only the Expo frontend.
+server/
+evaluation/
+docs/
+scripts/
+tests/
+.private-notes/
+.artifacts/
+artifacts/
+node_modules/
+**/node_modules/
+**/.expo/
+**/dist/
+.env
+.env.*
+**/.env
+**/.env.*
+**/appsettings*.json
+**/web.config
+**/*.pfx
+**/*.p12
+**/*.pem
+**/*.key
+**/*.log

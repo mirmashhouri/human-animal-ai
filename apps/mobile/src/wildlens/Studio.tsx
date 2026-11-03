@@ -172,7 +172,7 @@ export function WildLensStudio() {
       <View style={s.photoActions}><Pressable accessibilityRole="button" accessibilityLabel={photo ? 'Change photo' : 'Upload photo'} disabled={busy} onPress={() => void choosePhoto()}><Text style={s.link}>{photo ? 'Change photo' : 'Upload photo'}</Text></Pressable>
         <Pressable accessibilityRole="button" disabled={busy} onPress={() => void choosePhoto(true)}><Text style={s.link}>Use camera</Text></Pressable></View>
       {photo ? <><Action icon="sparkles-outline" label="Create my animal" disabled={busy || !config?.liveReady} onPress={() => void generate()} />
-        <Text style={[s.caption, { textAlign: 'center' }]}>By generating, you confirm you have permission to use this photo and send it to Meta for analysis and image creation.</Text></> : null}
+        <Text style={[s.caption, { textAlign: 'center' }]}>By generating, you confirm you have permission to use this photo and send it to Meta for analysis and image creation.{config?.archiveEnabled ? " Your finished comparison card is also saved on this server." : ""}</Text></> : null}
       {!config?.liveReady ? <View style={{ alignItems: 'center' }}><Text style={[s.caption, { textAlign: 'center' }]}>The studio connection is unavailable.</Text><Pressable accessibilityRole="button" onPress={() => setConnectionAttempt(value => value + 1)}><Text style={s.link}>Retry connection</Text></Pressable></View> : null}
       {phase === 'picking' ? <View accessibilityLiveRegion="polite" style={s.progress}><ActivityIndicator color={c.blue} /><Text style={s.body}>{progress.picking}</Text></View> : null}
     </View> : null}

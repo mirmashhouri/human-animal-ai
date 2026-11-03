@@ -33,7 +33,7 @@ if (args[0] == "--activate-memory") {
         validationExamples = pool.Index.Vectors.Count(v => v.Split == "validation"), testExamples = pool.Index.Vectors.Count(v => v.Split == "test"),
         unassignedExamples = cases.Count(c => !c.Archived && c.Split == "unassigned"),
         feedbackUnchanged = true, fineTuned = false, modelCalls = 0,
-        notice = "Main-app requests retrieve relevant confirmed training photos and judgments. Validation/test examples stay excluded. Existing labels, reasons, artwork choices and splits are unchanged."
+        notice = "Main-app requests use relevant confirmed training judgments for bounded local ranking. Validation/test examples stay excluded. Existing labels, reasons, artwork choices and splits are unchanged."
     };
     var json = JsonSerializer.Serialize(report, new JsonSerializerOptions(TeachingScoring.Json) { WriteIndented = true });
     File.WriteAllText(Path.Combine(output, "activation.json"), json); Console.WriteLine(json); return;

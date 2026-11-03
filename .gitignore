@@ -1,3 +1,4 @@
+# Dependencies and build output
 node_modules/
 .expo/
 dist/
@@ -5,12 +6,36 @@ bin/
 obj/
 .cache/
 .artifacts/
+artifacts/
+coverage/
+
+# Credentials and machine/deployment configuration
 .env
-.env.local
-.env.*.local
+.env.*
+!**/.env.example
+.vercel/
+**/appsettings.Production.json
+**/appsettings.*.local.json
+**/web.config
+*.pfx
+*.p12
+*.pem
+*.key
 *.user
 *.suo
+.vs/
+
+# Private photos, feedback, archives and local notes
 App_Data/
-artifacts/
 evaluation/private/
-!**/.env.example
+.private-notes/
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+
+# Local logs and OS files
+*.log
+.DS_Store
+Thumbs.db
