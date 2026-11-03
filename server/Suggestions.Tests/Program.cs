@@ -44,7 +44,7 @@ Check((await Finish(imageJob.Id)).Status == "complete", "Image preparation compl
 Check(handler.ImageCalls == 6 && handler.PhraseCalls == 2, "Image batch makes three image edits and one reason-shortening request per portrait");
 Check(suggestions.Proposals().All(p => p.Artworks?.Length == 3 && p.Candidates.All(c => TeachingSuggestions.ValidPhrases(c.Phrases))), "Finished PNG metadata and concise reason phrases persist on every candidate");
 Check(store.Export() == labelsBefore && memory.Index().Vectors.Length == 0, "Generating candidate artwork never confirms labels or alters retrieval memory");
-Check(handler.ImageBodies.All(b => b.Contains("1024x1536") && b.Contains("Painterly") && b.Contains("Dreamlike") && b.Contains("data:image/jpeg;base64,") && b.Contains("distinctive eye color")), "Previews use the original reference and the main studio's image settings and continuity instructions");
+Check(handler.ImageBodies.All(b => b.Contains($"\"size\":\"{JpegInput.Dimensions(jpeg).Width}x{JpegInput.Dimensions(jpeg).Height}\"") && b.Contains("Painterly") && b.Contains("Dreamlike") && b.Contains("data:image/jpeg;base64,") && b.Contains("distinctive eye color")), "Previews use the original aspect ratio, reference and main studio continuity instructions");
 Reject(() => suggestions.ArtworkPath("../references/photo.png"), "invalid_artwork");
 var afterArtworkCalls = handler.Bodies.Count;
 Check(suggestions.Start(new([first.CaseId, second.CaseId], true, true)).Status == "complete" && handler.Bodies.Count == afterArtworkCalls,

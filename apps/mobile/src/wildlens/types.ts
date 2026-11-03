@@ -4,9 +4,9 @@ export type StudioConfig = {
 };
 export type Direction = {
   subjectVisible: boolean; title: string; pose: string; composition: string;
-  animalName: string; animalReason: string; story: string; palette: string[];
+  animalName: string; animalReason: string; story: string; palette: string[]; caption?: string | null;
   groupPhoto?: boolean;
-  subjects?: { id: number; position: string; animalName: string; animalReason: string; pose: string }[] | null;
+  subjects?: { id: number; position: string; animalName: string; animalReason: string; pose: string; caption?: string | null }[] | null;
   signature?: { feature: string; observation: string; animalTranslation: string; visibility: 'clear' | 'uncertain'; priority: number }[] | null;
   expression?: string | null; atmosphere?: string | null;
   faceProfile?: { subjectVisible: boolean; outline: string; lengthWidth: string; cheekJaw: string; eyes: string; noseMouth: string; lengthClass: string } | null;
@@ -18,6 +18,6 @@ export type Inspection = {
   personalization?: { status: 'used' | 'baseline'; examples: number; version: string } | null;
 };
 export type Artwork = { image: string; model: string; promptVersion: string; notice: string };
-export type StudioPhoto = { uri: string; base64: string; palette: string[] };
+export type StudioPhoto = { uri: string; base64: string; palette: string[]; width?: number; height?: number };
 export type StudioOptions = { style: string; mood: string; subject: string; segment: boolean };
 export type IsolatedSubject = { uri: string; base64: string; count: number };

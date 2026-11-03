@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "WildLens",
+    "name": "Wildfie",
     "slug": "wildlens",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -18,7 +18,8 @@
     },
     "web": {
       "bundler": "metro",
-      "name": "WildLens — through the wild"
+      "name": "Wildfie — Your wild selfie",
+      "favicon": "./assets/wildfie-icon.png"
     },
     "plugins": [
       [

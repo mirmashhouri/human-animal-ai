@@ -6,6 +6,23 @@ import { formats, decodeMaskToRaster, recordsOfKind } from '@meta-sam/parser';
 
 const source = await readFile(new URL('../apps/mobile/src/wildlens/palette.ts', import.meta.url), 'utf8');
 const { quantizePalette } = await import('data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(source)).toString('base64'));
+const sharing = await readFile(new URL('../apps/mobile/src/wildlens/shareCard.ts', import.meta.url), 'utf8');
+const { shareCaptions } = await import('data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(sharing)).toString('base64'));
+
+test('one phrase preserves the full selected species and removes the old feature subtitle', () => {
+  const [phrase] = shareCaptions({ animalName: 'Great horned owl', caption: 'Dreamy wise owl · Gentle sideways gaze' });
+  assert.equal(phrase.text, 'A dreamy wise Great horned owl');
+  assert.equal(phrase.animal, 'Great horned owl');
+  assert.equal(phrase.prefix, 'A dreamy wise ');
+  assert.equal(shareCaptions({ animalName: 'Great horned owl', caption: 'A dreamy, wise Great horned owl' })[0].text, 'A dreamy, wise Great horned owl');
+});
+
+test('legacy results and groups keep independent complete animal names', () => {
+  assert.equal(shareCaptions({ animalName: 'Owl' })[0].text, 'An Owl');
+  const captions = shareCaptions({ groupPhoto: true, subjects: [{ id: 1, animalName: 'Rabbit', caption: 'A playful, happy Rabbit' }, { id: 2, animalName: 'Great horned owl', caption: 'Calm owl · Gentle gaze' }] });
+  assert.deepEqual(captions.map(c => c.id), [1, 2]);
+  assert.equal(captions[1].text, 'A calm Great horned owl');
+});
 test('whole-image palette is pixel-derived, ordered, and ignores transparent pixels', () => {
   assert.deepEqual(quantizePalette([255,0,0,255, 255,0,0,255, 0,255,0,255, 0,0,255,0]), ['#ff0000', '#00ff00']);
   assert.deepEqual(quantizePalette([]), []);

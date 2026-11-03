@@ -1,14 +1,14 @@
-# WildLens
+# Wildfie
 
-A Meta AI hackathon adaptation of the existing Kinform app. Upload a portrait and choose **Create my animal** once. See the original and animal side by side, with colors and the visual story below.
+A Meta AI hackathon adaptation of the existing Kinform app, previously named WildLens. Upload a portrait and choose **Create my animal** once. See the original and animal side by side, with a short positive artwork caption below. **Save image** downloads both portraits and the caption together as one PNG.
 
 ## Pipeline
 
 1. Expo/React resizes the upload to a bounded JPEG and samples whole-image colors locally in the browser.
 2. One Create action starts the full pipeline. Muse Spark 1.3 produces structured observations of pose, composition, colors and an artistic animal suggestion. For group photos, it assigns an animal separately to each clear portrait and records that person's image position.
 3. For a single subject on web, SAM 3.1 supplies a mask and the official `@meta-sam/parser` decodes it into a transparent editing reference. Groups use the entire original photo and skip SAM/cutouts, so a one-person mask cannot remove other people.
-4. Muse Image 1.0 receives the original photo and, for single portraits, the isolated reference. A group makes one combined artwork with each person mapped to their own suggested animal, retaining positions, relative sizes, poses, clothing and interactions. People with unclear faces remain unchanged. Painterly / Dreamlike defaults are internal; there are no direction controls.
-5. Original and artwork appear side by side, including on mobile. Animal explanations appear below, individually by image position for group portraits, followed by the shared palette and visual story. Browser export downloads one PNG; native export uses the device share sheet.
+4. Muse Image 1.0 receives the original photo and, for single portraits, the isolated reference. The request uses the uploaded JPEG's aspect ratio and asks to preserve its landscape, square or portrait framing. A group makes one combined artwork with each person mapped to their own suggested animal, retaining positions, relative sizes, poses, clothing and interactions. People with unclear faces remain unchanged. Painterly / Dreamlike defaults are internal; there are no direction controls.
+5. Original and artwork appear side by side in frames matching the source ratio, including on mobile. One phrase such as “A dreamy, wise Great horned owl” appears beneath, with the full animal name bold. Individual card labels, feature subtitles, explanations, color swatches and stories are hidden. The public app uses white surfaces, system sans-serif typography, blue actions and gradient accents inspired by Instagram. Browser export draws both complete images and the same styled phrase into one 1800-pixel-wide PNG whose height follows the source ratio; native sharing captures the combined card. The phrase comes from the existing Spark request after species selection. Emotion/character words describe the creative animal artwork, not the person's actual feelings or personality.
 
 The backend remains ASP.NET Core 10, reusing the working project instead of rewriting it in Python. The inherited Kinform source is preserved, but the entry point is now `apps/mobile/WildLensApp.tsx`. Its old OpenAI routes stay in demo mode and are not used by WildLens. Original project notes are archived under `docs/KINFORM-*`.
 
@@ -27,7 +27,9 @@ The launcher installs pinned dependencies with `npm ci` when needed, checks the 
 
 For a deliberate clean reinstall, stop the web preview first, then run `npm ci`. If a previous install was interrupted, the launcher preserves the incomplete `node_modules` folder in `.artifacts/npm-install-leftovers-*` before reinstalling. Code, `.env` and `evaluation/private` are not moved or deleted. Do not run dependency installation while Metro is using the same folder.
 
-Or run two terminals: `npm run api` and `npm run web`. The local layout demo works without a key, performs no image analysis and is explicitly labeled. It shows a bundled animal reference photo, not a generated transformation.
+Or run two terminals: `npm run api` and `npm run web`.
+
+Tall uploads fit within a screen-sized preview without cropping the photo; the create button stays accessible on desktop and phone screens. **Use camera** opens a live browser preview, requests camera access (never microphone access), and lets you take a photo for review before generation. Browser cameras require HTTPS or localhost; a plain HTTP LAN address on a phone cannot request a live camera. Native iOS/Android builds use the system camera and its permission dialog. Closing the preview, taking a photo or switching cameras stops the previous camera stream. The public footer and demo entry have been removed. The Wildfie camera-and-paw icon is used in the app and browser tab; internal project identifiers and private teaching data keep their existing paths.
 
 ## Connect Meta
 

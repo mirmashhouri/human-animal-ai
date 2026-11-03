@@ -33,7 +33,7 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
     await chooser.setFiles(path.join(root, 'apps/mobile/assets/photos/red-fox.jpg'));
     await page.getByRole('img', { name: 'Your uploaded photo', exact: true }).waitFor();
     await page.getByRole('button', { name: 'Create my animal', exact: true }).click();
-    await page.getByRole('button', { name: 'Save my animal', exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Save image', exact: true }).waitFor();
     await page.getByTestId('portrait-comparison').scrollIntoViewIfNeeded();
     await page.screenshot({ path: path.join(output, 'wildlens-real-meta-result-minimal.png') });
     assert.ok(cutoutBytes > 1000); assert.deepEqual(errors, []);

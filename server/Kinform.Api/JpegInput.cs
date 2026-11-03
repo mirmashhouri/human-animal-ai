@@ -21,8 +21,18 @@ public static class JpegInput
 
     // A bounded container/dimension check, not a full decoder or face detector.
     // The client re-encodes JPEGs; a production upload service should also decode/re-encode.
-    public static bool HasSafeDimensions(ReadOnlySpan<byte> data)
+    public static bool HasSafeDimensions(ReadOnlySpan<byte> data) => TryDimensions(data, out _, out _);
+
+    public static (int Width, int Height) Dimensions(ReadOnlySpan<byte> data)
     {
+        if (!TryDimensions(data, out var width, out var height))
+            throw new MatchException("invalid_image", "Choose a valid JPEG between 64 and 2048 pixels on each side.");
+        return (width, height);
+    }
+
+    private static bool TryDimensions(ReadOnlySpan<byte> data, out int width, out int height)
+    {
+        width = height = 0;
         if (data.Length < 16 || data[0] != 0xff || data[1] != 0xd8 ||
             data[^2] != 0xff || data[^1] != 0xd9) return false;
         var offset = 2;
@@ -40,8 +50,8 @@ public static class JpegInput
             if (marker is 0xc0 or 0xc1 or 0xc2)
             {
                 if (length < 8) return false;
-                var height = BinaryPrimitives.ReadUInt16BigEndian(data.Slice(offset + 3, 2));
-                var width = BinaryPrimitives.ReadUInt16BigEndian(data.Slice(offset + 5, 2));
+                height = BinaryPrimitives.ReadUInt16BigEndian(data.Slice(offset + 3, 2));
+                width = BinaryPrimitives.ReadUInt16BigEndian(data.Slice(offset + 5, 2));
                 return width is >= 64 and <= MaxDimension && height is >= 64 and <= MaxDimension;
             }
             offset += length;

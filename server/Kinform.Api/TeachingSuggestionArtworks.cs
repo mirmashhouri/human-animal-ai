@@ -117,7 +117,7 @@ public sealed partial class WildLensMeta {
             var plan = new WildLensAnalysis(true, "Animal-inspired portrait", "Keep the exact visible head angle, gaze and gesture from the original photo",
                 "Keep the original framing, clothing, accessories and scene", candidate.Animal, string.Join("; ", candidate.Reasons), "A portrait reimagined", []);
             using var payload = await PostAsync("images/edits", new {
-                model = ImageModel(config), n = 1, size = "1024x1536", output_format = "png", reasoning_strength = "high",
+                model = ImageModel(config), n = 1, size = OutputShape(image), output_format = "png", reasoning_strength = "high",
                 tool_enablement = new { enable_image_search = false, enable_web_search = false, enable_shell = false },
                 images = new[] { new { image_url = "data:image/jpeg;base64," + Convert.ToBase64String(image) } },
                 prompt = BuildPrompt(plan, candidate.Animal, "Painterly", "Dreamlike", false) +

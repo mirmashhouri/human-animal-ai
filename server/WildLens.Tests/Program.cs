@@ -39,6 +39,9 @@ using (var json = JsonDocument.Parse(spark.Body)) {
 }
 Check(inspection.PaletteSource == "measured-in-browser" && inspection.Analysis.Palette[0] == "#112233", "Measured palette overrides estimated colors");
 Check(inspection.SegmentationText.Contains("<|mask;"), "SAM mask is preserved for the official client parser");
+Check(inspection.Analysis.Caption == "A playful, happy Fox", "One sharing phrase arrives in the existing Spark request");
+await Reject(() => { WildLensMeta.ValidateAnalysis(inspection.Analysis with { Caption = new string('x',111) }); return Task.CompletedTask; }, "invalid_meta_output");
+await Reject(() => { WildLensMeta.ValidateAnalysis(inspection.Analysis with { Caption = "Happy fox\nBright eyes" }); return Task.CompletedTask; }, "invalid_meta_output");
 var artwork = await service.RenderAsync(new(encoded, inspection.Ticket, true), default);
 Check(artwork.Image.StartsWith("data:image/png;base64,"), "Muse Image returns a PNG artwork");
 var render = handler.Calls.Single(x => x.Uri.AbsolutePath.EndsWith("images/edits"));
@@ -63,15 +66,17 @@ handler.GroupSize = 2;
 var callsBeforeGroup = handler.Calls.Count;
 var group = await service.InspectAsync(new(encoded, true), default);
 Check(group.Analysis.GroupPhoto && group.Analysis.Subjects?.Length == 2, "Two clear portraits are accepted and receive separate animal assignments");
+Check(group.Analysis.Subjects![1].Caption == "A dreamy, wise Great horned owl", "Every group member has a phrase using its full animal name");
 Check(handler.Calls.Count == callsBeforeGroup + 1 && group.SegmentationStatus == "skipped" && group.SegmentationText == "", "Group analysis uses one Spark call and skips a single-person SAM cutout");
 await service.RenderAsync(new(encoded, group.Ticket, true, IsolatedSubject: "a-single-person-cutout-must-not-be-used"), default);
 var groupRender = handler.Calls.Last(x => x.Uri.AbsolutePath.EndsWith("images/edits"));
 using (var json = JsonDocument.Parse(groupRender.Body)) {
     Check(json.RootElement.GetProperty("images").GetArrayLength() == 1 && json.RootElement.GetProperty("images")[0].GetProperty("image_url").GetString() == "data:image/jpeg;base64," + encoded, "Group generation uses the whole original photo, without dropping anyone through isolation");
     var prompt = json.RootElement.GetProperty("prompt").GetString()!;
-    Check(prompt.Contains("Viewer-left person") && prompt.Contains("Viewer-right person") && prompt.Contains("Fox") && prompt.Contains("Owl"), "Every person's position and own animal reaches the image editor");
+    Check(prompt.Contains("Viewer-left person") && prompt.Contains("Viewer-right person") && prompt.Contains("Fox") && prompt.Contains("Great horned owl"), "Every person's position and own animal reaches the image editor");
     Check(prompt.Contains("Do not swap animal assignments") && prompt.Contains("preserve them unchanged"), "Group prompt preserves assignments and people with unclear faces");
     Check(!prompt.Contains("portraitContinuity") && !prompt.Contains("naturalLengthClass"), "Group support does not reintroduce rejected matching algorithms");
+    Check(!prompt.Contains("dreamy, wise"), "Sharing captions do not change species selection or the group art direction");
 }
 Check(handler.Calls.Count == callsBeforeGroup + 2, "A group creation uses one Spark request and one combined image edit");
 await Reject(() => service.RenderAsync(new(encoded, group.Ticket, true, Animal: "Fox"), default), "invalid_options");
@@ -86,6 +91,20 @@ handler.GroupSize = 1;
 var partlyClear = await service.InspectAsync(new(encoded, true), default);
 Check(partlyClear.Analysis.GroupPhoto && partlyClear.Analysis.Subjects?.Length == 1, "A group with only one clear face still gets a valid transformation plan");
 handler.GroupSize = 0;
+foreach (var (width,height) in new[] { (1000,750), (750,1000), (900,900) }) {
+    // A dimension-header fixture; the fake provider never decodes or sends these bytes.
+    var sized=jpeg.ToArray();
+    var marker=Enumerable.Range(2,sized.Length-12).First(i=>sized[i-1]==0xff && sized[i] is 0xc0 or 0xc1 or 0xc2);
+    System.Buffers.Binary.BinaryPrimitives.WriteUInt16BigEndian(sized.AsSpan(marker+4,2),(ushort)height);
+    System.Buffers.Binary.BinaryPrimitives.WriteUInt16BigEndian(sized.AsSpan(marker+6,2),(ushort)width);
+    Check(JpegInput.Dimensions(sized)==(width,height),$"JPEG dimensions are read from the source: {width}x{height}");
+    var payload=Convert.ToBase64String(sized); var callsBefore=handler.Calls.Count;
+    var direction=await service.InspectAsync(new(payload,true,Segment:false),default);
+    await service.RenderAsync(new(payload,direction.Ticket,true),default);
+    using var request=JsonDocument.Parse(handler.Calls.Last().Body);
+    Check(request.RootElement.GetProperty("size").GetString()==$"{width}x{height}",$"Generation requests the original aspect ratio: {width}x{height}");
+    Check(request.RootElement.GetProperty("prompt").GetString()!.Contains("Match the first image's aspect ratio") && handler.Calls.Count==callsBefore+2,"Source shape is preserved without any extra provider call");
+}
 var parsedEnv = LocalEnvironment.Parse("MODEL_API_KEY=fake\nMETA_CREDIT_CONFIRMED=false\nMETA_ENABLE_PAID_REQUESTS=false");
 Check(parsedEnv["WildLens:ApiKey"] == "fake" && parsedEnv["WildLens:CreditConfirmed"] == "false", "Meta environment mappings");
 using (var truncated = JsonDocument.Parse("{\"choices\":[{\"finish_reason\":\"length\",\"message\":{\"content\":\"\"}}]}")) {
@@ -115,10 +134,10 @@ sealed class MetaHandler : HttpMessageHandler {
             "/v1/chat/completions" => new { choices = new[] { new { message = new { content = JsonSerializer.Serialize(new {
                 subjectVisible = true, title = "Woodland light", pose = "A three-quarter view", composition = "Soft light and open framing",
                 animalName = GroupSize > 0 ? "Animal portraits" : "Fox", animalReason = "An artistic silhouette analogy", story = "A dreamlike woodland portrait.", palette = new[] { "#223344", "#aabbcc", "#ddeeff" },
-                groupPhoto = GroupSize > 0,
+                caption = "A playful, happy Fox", groupPhoto = GroupSize > 0,
                 subjects = Enumerable.Range(1, GroupSize).Select(id => new {
                     id, position = id == 1 ? "Viewer-left person" : id == 2 ? "Viewer-right person" : "Back-row person",
-                    animalName = id == 2 ? "Owl" : "Fox", animalReason = id == 2 ? "A rounded silhouette analogy" : "A turning pose analogy", pose = "Preserve the original head angle"
+                    animalName = id == 2 ? "Great horned owl" : "Fox", animalReason = id == 2 ? "A rounded silhouette analogy" : "A turning pose analogy", pose = "Preserve the original head angle", caption = id == 2 ? "A dreamy, wise Great horned owl" : "A playful, happy Fox"
                 }).ToArray()
             }) } } } },
             "/v1/responses" => new { status = "completed", output = new[] { new { content = new[] { new { type = "output_text",

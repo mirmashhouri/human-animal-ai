@@ -54,7 +54,7 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
     assert.equal(analysisCalls + imageCalls, 0, 'No model calls before Create.');
     await page.getByRole('button', { name: 'Create my animal', exact: true }).click();
     console.log('One-click personalized creation started; at most two Spark + one SAM + one Muse Image calls.');
-    await page.getByTestId('preference-guidance').waitFor({ timeout: 390000 });
+    await page.getByRole('img', { name: 'Your animal portrait', exact: true }).waitFor({ timeout: 390000 });
     await page.getByRole('img', { name: 'Your animal portrait', exact: true }).evaluate(img => img.decode());
     assert.equal(analysisCalls, 1); assert.equal(imageCalls, 1); assert.deepEqual(errors, []);
     await page.getByTestId('portrait-comparison').scrollIntoViewIfNeeded();
