@@ -11,6 +11,7 @@ import { exportArtwork, serializeArtwork } from './export';
 import { PortraitResults } from './Results';
 import { CameraCapture } from './CameraCapture';
 import { CreationLoading } from './CreationLoading';
+import { SampleGallery } from './SampleGallery';
 import type { CameraPhoto } from './cameraTypes';
 import type { Artwork, Inspection, StudioConfig, StudioPhoto } from './types';
 import { uiFontFamily, socialColors as c } from './theme';
@@ -187,6 +188,7 @@ export function WildLensStudio() {
     </> : null}
     {error ? <View accessibilityRole="alert" style={s.error}><Ionicons name="alert-circle-outline" size={21} color="#8f3e2d" /><Text style={{ color: '#8f3e2d', flex: 1, lineHeight: 22 }}>{error}</Text></View> : null}
     {notice ? <Text accessibilityLiveRegion="polite" style={[s.caption, { marginTop: 16 }]}>{notice}</Text> : null}
+    {!photo && phase === 'idle' ? <SampleGallery /> : null}
   </View></ScrollView>{cameraOpen ? <CameraCapture onClose={() => setCameraOpen(false)} onCapture={captured => void acceptCameraPhoto(captured)} /> : null}</>;
 }
 const s = StyleSheet.create({

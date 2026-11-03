@@ -48,7 +48,7 @@ Choosing a photo makes no model request. **Create** starts paid processing: one 
 
 ## Optional private teaching
 
-The local [teaching studio](http://localhost:8093/teach) supports animal choices, agree/correct feedback, feature ratings and held-out comparisons. A fresh clone contains **no private teaching dataset, generated portraits or saved judgments**. Upload your own examples or prepare an attributed starter collection using the [teaching guide](docs/TEACHING.md).
+The local [teaching studio](http://localhost:8093/teach) supports animal choices, agree/correct feedback, feature ratings and held-out comparisons. A fresh clone contains **no private teaching dataset or saved judgments**. The ten public showcase comparisons are separate display assets and do not enter teaching memory. Upload your own examples or prepare an attributed starter collection using the [teaching guide](docs/TEACHING.md).
 
 With eligible memory enabled, selection uses **85% independent visual fit + 15% local preference support**. The configurable preference weight cannot exceed 20%. These are ranking weights, not probabilities or a promise that 15% of results will change. Repeated labels do not accumulate votes, and new animal species remain possible. This is retrieval and local scoring, not fine-tuning. See [personalization](docs/PERSONALIZATION.md).
 

@@ -14,3 +14,7 @@ Images were resized and may be displayed with cropped views. The sample human po
 Downloaded teaching collections are not bundled. Each collection writes its own `manifest.json` and `ATTRIBUTION.txt` with image-specific source, author, license and transformation records; preserve those with the collection.
 
 The frontend and backend use third-party packages under their respective licenses. Versions are recorded in `package-lock.json` and project files. Dependencies and their bundled fonts/assets retain their original notices.
+
+## Showcase comparisons
+
+The ten finished comparison cards in `apps/mobile/assets/samples/` were supplied by the project maintainer for the public sample gallery. They retain the original human/animal pairing and caption, as optimized WebP images for the gallery. They are separate from the development photographs listed above; no additional license for their source portraits or generated artwork is asserted by this notice.
