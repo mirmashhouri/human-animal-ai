@@ -15,8 +15,16 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
     const realConfig = await realConfigResponse.json(); assert.equal(realConfigResponse.status(), 200);
     // All generation endpoints are intercepted BEFORE navigation or file selection.
     // The local-demo-only human photograph never reaches the real API or a model.
-    await page.route('**/api/wildlens/config', route => route.fulfill({ json: { ...realConfig, liveReady: true, keyConfigured: true, creditConfirmed: true, paidRequestsEnabled: true } }));
+    await page.route('**/api/wildlens/config', route => route.fulfill({ json: { ...realConfig, liveReady: true, keyConfigured: true, creditConfirmed: true, paidRequestsEnabled: true, archiveEnabled: true } }));
     const analyses = [], renders = [];
+    const archives = []; let failArchive = true;
+    await page.route('**/api/wildlens/cards', async route => {
+      const body = route.request().postDataJSON();
+      assert.equal(body.consent, true); assert.ok(body.token.startsWith('archive-fixture-'));
+      if (failArchive) return route.fulfill({ status: 503, json: { code: 'archive_unavailable', message: 'Simulated storage failure. Your card is still available to download.' } });
+      archives.push(body);
+      return route.fulfill({ json: { id: body.token, fileName: 'test-card.png', savedAt: new Date().toISOString() } });
+    });
     let failGeneration = false, blockAnalysis = false, groupMode = false, releaseAnalysis, analysisStarted;
     const analysis = {
       subjectVisible: true, title: 'UI test portrait', pose: 'A gently turned head', composition: 'Soft framing', animalName: 'Fox',
@@ -46,7 +54,7 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
         const w = animal.naturalWidth * scale, h = animal.naturalHeight * scale;
         ctx.drawImage(animal, (canvas.width-w)/2, (canvas.height-h)/2, w, h); return canvas.toDataURL('image/png');
       }, { original: 'data:image/jpeg;base64,' + body.imageBase64, artwork: 'data:image/png;base64,' + fixturePng.toString('base64') });
-      return route.fulfill({ json: { image, model: 'simulated-muse-image', promptVersion: 'test-fixture', notice: 'UI fixture, not a new model result.' } });
+      return route.fulfill({ json: { image, model: 'simulated-muse-image', promptVersion: 'test-fixture', notice: 'UI fixture, not a new model result.', archiveToken: 'archive-fixture-' + renders.length } });
     });
     await page.goto('http://localhost:8093', { waitUntil: 'networkidle' });
     await page.getByRole('heading', { name: 'Your selfie, a little wilder.', exact: true }).waitFor();
@@ -91,6 +99,7 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
     await page.screenshot({ path: path.join(output, 'wildfie-tall-upload-mobile.png') });
     await page.setViewportSize({ width: 1440, height: 1100 });
     await upload();
+    assert.equal(await page.getByText(/A copy of your final comparison card will be saved on our server\./).count(), 1);
     assert.equal(analyses.length, 0, 'Selecting a photo must not send it to Meta');
     await page.getByRole('button', { name: 'Create my animal', exact: true }).click();
     await page.getByRole('img', { name: 'Your animal portrait', exact: true }).waitFor();
@@ -101,6 +110,11 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
     assert.equal(renders[0].animal, 'Suggested'); assert.equal(renders[0].imageBase64, analyses[0].imageBase64);
     assert.ok(renders[0].isolatedSubject.startsWith('iVBOR'), 'A real decoded mask creates the second PNG reference');
     await page.getByTestId('portrait-caption').filter({ hasText: analysis.caption }).waitFor();
+    await page.getByRole('button', { name: 'Retry server save', exact: true }).waitFor();
+    failArchive = false;
+    await page.getByRole('button', { name: 'Retry server save', exact: true }).click();
+    await page.getByTestId('server-save-status').waitFor();
+    assert.equal(archives.length, 1); assert.equal(renders.length, 1, 'Retrying storage never regenerates or calls Meta again');
     assert.equal(await page.getByText(analysis.animalReason, { exact: true }).count(), 0);
     assert.equal(await page.getByTestId('portrait-details').count(), 0);
     for (const removed of ['WHY THIS ANIMAL', 'WHY THESE ANIMALS', 'A little story', 'Your colors', 'Expression & atmosphere']) assert.equal(await page.getByText(removed, { exact: true }).count(), 0);
@@ -131,6 +145,7 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
     const desktopFile = await desktopDownload;
     if (!desktopFile) { await page.screenshot({ path: path.join(output, 'wildlens-export-error.png') }); throw new Error('Export failed: ' + (await page.getByRole('alert').allTextContents()).join(' / ') + ' / Browser: ' + errors.join(' / ')); }
     const desktopPng = await fs.readFile(await desktopFile.path());
+    assert.deepEqual(Buffer.from(archives[0].imageBase64, 'base64'), desktopPng, 'The automatic server copy is the exact same combined PNG as the download');
     await page.setViewportSize({ width: 390, height: 844 });
     await assertLayout();
     await page.getByTestId('portrait-comparison').scrollIntoViewIfNeeded();
@@ -200,6 +215,7 @@ const { chromium } = require(process.env.WILDLENS_PLAYWRIGHT_PATH || 'playwright
       sideBySideAtDesktopAnd390px: true, captionBelowImages: true, exportedBothPortraitsAndCaption: true, exportWidth: 1800, groupAssignments: true,
       originalAspectRatio: ['landscape', 'portrait', 'square'], fullAnimalNameBold: true, noRepeatedLabels: true,
       tallUploadFitsDesktopAndMobile: true, noFooterOrDemo: true, brandAndFavicon: 'Wildfie',
+      automaticServerCard: true, archiveFailurePreservesResult: true, storageRetryMakesNoMetaCalls: true,
       wholeGroupReference: true, cancellation: 'stops next paid stage', additionalMetaCalls: 0, pageErrors: errors }, null, 2));
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

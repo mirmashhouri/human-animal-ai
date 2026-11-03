@@ -16,6 +16,8 @@ async function request<T>(path: string, signal: AbortSignal, body?: unknown): Pr
   return payload as T;
 }
 export const studioConfig = (signal: AbortSignal) => request<StudioConfig>('config', signal);
+export const archiveCard = (imageBase64: string, token: string, signal: AbortSignal) =>
+  request<{ id: string; fileName: string; savedAt: string }>('cards', signal, { imageBase64, token, consent: true });
 export async function inspectPhoto(photo: StudioPhoto, options: StudioOptions, signal: AbortSignal): Promise<Inspection> {
   const result = await request<Inspection>('analyze', signal, { imageBase64: photo.base64, consent: true, palette: photo.palette, ...options });
   if (!result?.ticket || !result.analysis || !Array.isArray(result.analysis.palette)) throw new Error('The analysis was incomplete.');

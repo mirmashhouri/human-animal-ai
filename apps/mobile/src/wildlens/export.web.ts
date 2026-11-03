@@ -39,7 +39,7 @@ function wrapPhrase(context: CanvasRenderingContext2D, caption: ReturnType<typeo
   return lines;
 }
 
-export async function exportArtwork(_ref: RefObject<View | null>, photo: StudioPhoto, image: string, direction: Direction) {
+async function artworkBlob(photo: StudioPhoto, image: string, direction: Direction) {
   const [original, animal] = await Promise.all([loadImage(photo.uri), loadImage(image)]);
   await document.fonts.ready;
   const canvas = document.createElement('canvas'); const context = canvas.getContext('2d');
@@ -71,7 +71,22 @@ export async function exportArtwork(_ref: RefObject<View | null>, photo: StudioP
     }
     y += 15;
   }
-  const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('The portrait image could not be saved.')), 'image/png'));
+  return new Promise<Blob>((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('The portrait image could not be saved.')), 'image/png'));
+}
+
+export async function serializeArtwork(_ref: RefObject<View | null>, photo: StudioPhoto, image: string, direction: Direction) {
+  const blob = await artworkBlob(photo, image, direction);
+  if (blob.size > 8 * 1024 * 1024) throw new Error('The card is too large for server storage. You can still download it.');
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result.split(',')[1] ?? '') : reject(new Error('The server copy could not be prepared.'));
+    reader.onerror = () => reject(new Error('The server copy could not be prepared.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+export async function exportArtwork(_ref: RefObject<View | null>, photo: StudioPhoto, image: string, direction: Direction) {
+  const blob = await artworkBlob(photo, image, direction);
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a'); link.href = url; link.download = 'wildfie-portrait.png';
   document.body.appendChild(link); link.click(); link.remove();

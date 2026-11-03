@@ -2,6 +2,14 @@
 
 A Meta AI hackathon adaptation of the existing Kinform app, previously named WildLens. Upload a portrait and choose **Create my animal** once. See the original and animal side by side, with a short positive artwork caption below. **Save image** downloads both portraits and the caption together as one PNG.
 
+## Save comparison cards on the backend
+
+Server saving is opt-in. Merge `"Archive": { "Enabled": true, "Root": "C:\\ProgramData\\Wildfie\\cards" }` into the deployed `appsettings.Production.json`, and grant the dedicated IIS application pool Modify permission to that private folder. Keep it outside `wwwroot`. Restart that application pool and deploy the updated frontend as well.
+
+For each new successful public generation, the browser automatically saves the exact combined PNG used by **Save image**: original, generated animal and the styled caption. Files are retained in `Archive:Root/yyyy-MM-dd/HHmmss-<id>.png` using UTC dates and generated IDs. The default total storage limit is 1 GiB, configurable with `Archive:MaxTotalBytes`; each PNG is limited to 8 MiB. No extra Meta call is made, and stored cards do not become preference/training examples. Visitors see the retention notice before generation. A storage failure preserves their result and download, with a separate retry action that never regenerates the artwork.
+
+Uploads require a short-lived signed permit issued only after a successful public generation. Retries save one immutable file, and existing PNGs survive restarts and software updates. There is no public endpoint for listing or downloading the stored cards. A new process invalidates outstanding permits, but leaves files untouched. Old results and uploads that never completed generation are not backfilled automatically.
+
 ## Pipeline
 
 1. Expo/React resizes the upload to a bounded JPEG and samples whole-image colors locally in the browser.

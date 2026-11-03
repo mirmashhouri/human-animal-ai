@@ -4,10 +4,10 @@ import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { studioConfig } from './api';
+import { archiveCard, studioConfig } from './api';
 import { extractPalette } from './media';
 import { createPortrait, type CreationStage } from './pipeline';
-import { exportArtwork } from './export';
+import { exportArtwork, serializeArtwork } from './export';
 import { PortraitResults } from './Results';
 import { CameraCapture } from './CameraCapture';
 import type { CameraPhoto } from './cameraTypes';
@@ -35,6 +35,8 @@ export function WildLensStudio() {
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [artwork, setArtwork] = useState<Artwork | null>(null);
   const [artReady, setArtReady] = useState(false);
+  const [archiveStatus, setArchiveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
+  const [archiveError, setArchiveError] = useState('');
   const [config, setConfig] = useState<StudioConfig | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState('');
@@ -43,6 +45,7 @@ export function WildLensStudio() {
   const [showProcess, setShowProcess] = useState(false);
   const [connectionAttempt, setConnectionAttempt] = useState(0);
   const operation = useRef<AbortController | null>(null);
+  const archiveOperation = useRef<AbortController | null>(null);
   const busyRef = useRef(false);
   const resultRef = useRef<View>(null);
   const scrollRef = useRef<ScrollView>(null);
@@ -58,9 +61,10 @@ export function WildLensStudio() {
     void studioConfig(controller.signal).then(setConfig).catch(() => { if (!controller.signal.aborted) setConfig(null); }).finally(() => clearTimeout(timeout));
     return () => { clearTimeout(timeout); controller.abort(); };
   }, [connectionAttempt]);
-  useEffect(() => () => operation.current?.abort(), []);
+  useEffect(() => () => { operation.current?.abort(); archiveOperation.current?.abort(); }, []);
   function reset() {
-    operation.current?.abort(); setPhoto(null); setInspection(null); setArtwork(null); setArtReady(false);
+    operation.current?.abort(); archiveOperation.current?.abort(); archiveOperation.current = null;
+    setPhoto(null); setInspection(null); setArtwork(null); setArtReady(false); setArchiveStatus('idle'); setArchiveError('');
     setError(''); setNotice(''); scrollRef.current?.scrollTo({ y: 0, animated: false });
   }
   async function preparePhoto(asset: CameraPhoto & { fileSize?: number }) {
@@ -102,7 +106,7 @@ export function WildLensStudio() {
     busyRef.current = true;
     const controller = new AbortController(); operation.current = controller;
     const timeout = setTimeout(() => controller.abort(), 390000);
-    setError(''); setNotice(''); setArtwork(null); setInspection(null); setArtReady(false);
+    setError(''); setNotice(''); setArtwork(null); setInspection(null); setArtReady(false); setArchiveStatus('idle'); setArchiveError('');
     try {
       const result = await createPortrait(photo, controller.signal, stage => { if (!controller.signal.aborted) setPhase(stage); });
       if (controller.signal.aborted) return;
@@ -110,6 +114,26 @@ export function WildLensStudio() {
     } catch (e) {
       setError(controller.signal.aborted ? 'Creation stopped. Work already started at Meta may still complete; it was not retried.' : e instanceof Error ? e.message : 'Your portrait could not be created.');
     } finally { clearTimeout(timeout); busyRef.current = false; operation.current = null; setPhase('idle'); }
+  }
+  async function saveServerCopy() {
+    if (!config?.archiveEnabled || !photo || !artwork?.archiveToken || !inspection || archiveOperation.current) return;
+    const controller = new AbortController(); archiveOperation.current = controller;
+    const timeout = setTimeout(() => controller.abort(), 45000);
+    setArchiveStatus('saving'); setArchiveError('');
+    try {
+      const encoded = await serializeArtwork(resultRef, photo, artwork.image, inspection.analysis);
+      controller.signal.throwIfAborted();
+      await archiveCard(encoded, artwork.archiveToken, controller.signal);
+      if (!controller.signal.aborted) setArchiveStatus('saved');
+    } catch (e) {
+      if (archiveOperation.current === controller) {
+        setArchiveStatus('failed');
+        setArchiveError(controller.signal.aborted ? 'The server save timed out. You can retry saving or download your card.' : e instanceof Error ? e.message : 'The server copy could not be saved. You can still download your card.');
+      }
+    } finally {
+      clearTimeout(timeout);
+      if (archiveOperation.current === controller) archiveOperation.current = null;
+    }
   }
   async function download() {
     if (!photo || !artwork || !inspection || !artReady || busyRef.current) return;
@@ -135,7 +159,7 @@ export function WildLensStudio() {
       <View style={s.photoActions}><Pressable accessibilityRole="button" accessibilityLabel={photo ? 'Change photo' : 'Upload photo'} disabled={busy} onPress={() => void choosePhoto()}><Text style={s.link}>{photo ? 'Change photo' : 'Upload photo'}</Text></Pressable>
         <Pressable accessibilityRole="button" disabled={busy} onPress={() => void choosePhoto(true)}><Text style={s.link}>Use camera</Text></Pressable></View>
       {photo ? <><Action icon="sparkles-outline" label="Create my animal" disabled={busy || !config?.liveReady} onPress={() => void generate()} />
-        <Text style={[s.caption, { textAlign: 'center' }]}>By generating, you confirm you have permission to use this photo and send it to Meta for analysis and image creation.</Text></> : null}
+        <Text style={[s.caption, { textAlign: 'center' }]}>By generating, you confirm you have permission to use this photo and send it to Meta for analysis and image creation.{config?.archiveEnabled ? ' A copy of your final comparison card will be saved on our server.' : ''}</Text></> : null}
       {!config?.liveReady ? <View style={{ alignItems: 'center' }}><Text style={[s.caption, { textAlign: 'center' }]}>The studio connection is unavailable.</Text><Pressable accessibilityRole="button" onPress={() => setConnectionAttempt(value => value + 1)}><Text style={s.link}>Retry connection</Text></Pressable></View> : null}
       {busy && phase !== 'exporting' ? <View accessibilityLiveRegion="polite" style={s.progress}><ActivityIndicator color={c.blue} /><Text style={[s.body, { flex: 1 }]}>{progress[phase as Exclude<Phase, 'idle'>]}</Text>
         {phase !== 'picking' ? <Pressable accessibilityRole="button" onPress={() => operation.current?.abort()}><Text style={s.link}>Stop</Text></Pressable> : null}</View> : null}
@@ -143,8 +167,11 @@ export function WildLensStudio() {
     {complete && photo && inspection && artwork ? <>
       <View style={s.resultActions}><Action icon="download-outline" label="Save image" disabled={busy || !artReady} onPress={() => void download()} />
         <Action secondary label="Start over" disabled={busy} onPress={reset} /></View>
-      <View ref={resultRef} collapsable={false}><PortraitResults photo={photo} inspection={inspection} artwork={artwork} onLoad={() => setArtReady(true)}
+      <View ref={resultRef} collapsable={false}><PortraitResults photo={photo} inspection={inspection} artwork={artwork} onLoad={() => { setArtReady(true); void saveServerCopy(); }}
         onError={() => { setArtwork(null); setArtReady(false); setError('One of the portraits could not be displayed. No automatic retry was made.'); }} /></View>
+      {archiveStatus === 'saving' ? <Text accessibilityLiveRegion="polite" style={[s.caption, { marginTop: 12 }]}>Saving a server copy…</Text> : null}
+      {archiveStatus === 'saved' ? <Text testID="server-save-status" accessibilityLiveRegion="polite" style={[s.caption, { marginTop: 12 }]}>Server copy saved.</Text> : null}
+      {archiveStatus === 'failed' ? <View style={{ marginTop: 12 }}><Text accessibilityRole="alert" style={s.caption}>{archiveError}</Text><Pressable accessibilityRole="button" onPress={() => void saveServerCopy()}><Text style={s.link}>Retry server save</Text></Pressable></View> : null}
     </> : null}
     {error ? <View accessibilityRole="alert" style={s.error}><Ionicons name="alert-circle-outline" size={21} color="#8f3e2d" /><Text style={{ color: '#8f3e2d', flex: 1, lineHeight: 22 }}>{error}</Text></View> : null}
     {notice ? <Text accessibilityLiveRegion="polite" style={[s.caption, { marginTop: 16 }]}>{notice}</Text> : null}

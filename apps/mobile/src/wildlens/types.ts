@@ -1,5 +1,5 @@
 export type StudioConfig = {
-  liveReady: boolean; keyConfigured: boolean; creditConfirmed: boolean; paidRequestsEnabled: boolean;
+  liveReady: boolean; keyConfigured: boolean; creditConfirmed: boolean; paidRequestsEnabled: boolean; archiveEnabled?: boolean;
   visionModel: string; imageModel: string; segmentationModel: string; promptVersion: string;
 };
 export type Direction = {
@@ -17,7 +17,7 @@ export type Inspection = {
   segmentationStatus: 'segmented' | 'skipped'; paletteSource: string; promptVersion: string;
   personalization?: { status: 'used' | 'baseline'; examples: number; version: string } | null;
 };
-export type Artwork = { image: string; model: string; promptVersion: string; notice: string };
+export type Artwork = { image: string; model: string; promptVersion: string; notice: string; archiveToken?: string | null };
 export type StudioPhoto = { uri: string; base64: string; palette: string[]; width?: number; height?: number };
 export type StudioOptions = { style: string; mood: string; subject: string; segment: boolean };
 export type IsolatedSubject = { uri: string; base64: string; count: number };

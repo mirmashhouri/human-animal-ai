@@ -9,6 +9,7 @@
     <Content Remove=".env;.env.*" />
     <None Remove=".env;.env.*" />
     <None Include=".env.example" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+    <None Include="../../scripts/Prepare-CardFolder.ps1" Link="Prepare-CardFolder.ps1" CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../../data/animals.json" Link="Data/animals.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../../apps/mobile/assets/photos/red-fox.jpg" Link="wwwroot/animals/red-fox.jpg" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../../apps/mobile/assets/photos/caracal.jpg" Link="wwwroot/animals/caracal.jpg" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

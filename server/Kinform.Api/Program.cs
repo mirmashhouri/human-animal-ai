@@ -34,6 +34,7 @@ builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 
 builder.Services.AddSingleton<Catalogue>();
 builder.Services.AddSingleton<WildLensTickets>();
 builder.Services.AddSingleton<WildLensGate>();
+builder.Services.AddSingleton<CardArchive>();
 builder.Services.AddSingleton(_ => new TeachingStore(builder.Configuration["Teaching:DataRoot"] ?? Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "evaluation", "private"))));
 builder.Services.AddSingleton<TeachingAuth>();
 builder.Services.AddSingleton<TeachingMemory>();
@@ -87,6 +88,9 @@ builder.Services.AddRateLimiter(options =>
         limiter.PermitLimit = 20;
         limiter.Window = TimeSpan.FromMinutes(1);
         limiter.QueueLimit = 0;
+    });
+    options.AddFixedWindowLimiter("card-archive", limiter => {
+        limiter.PermitLimit = 20; limiter.Window = TimeSpan.FromMinutes(1); limiter.QueueLimit = 0;
     });
     options.AddFixedWindowLimiter("matching", limiter =>
     {

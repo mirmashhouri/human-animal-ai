@@ -19,7 +19,7 @@ public sealed record WildLensInspection(string Ticket, WildLensAnalysis Analysis
     [property: System.Text.Json.Serialization.JsonIgnore] string? MemoryHash = null);
 public sealed record WildLensRenderInput(string ImageBase64, string Ticket, bool Consent,
     string Style = "Painterly", string Mood = "Dreamlike", string Animal = "Suggested", string? IsolatedSubject = null);
-public sealed record WildLensArtwork(string Image, string Model, string PromptVersion, string Notice);
+public sealed record WildLensArtwork(string Image, string Model, string PromptVersion, string Notice, string? ArchiveToken = null);
 public sealed record WildLensTicket(string ImageHash, WildLensAnalysis Analysis, string Mood, DateTimeOffset Expires);
 
 // Image-bound signed plans avoid persisting portraits or trusting client-supplied analysis.
@@ -322,14 +322,24 @@ public static class WildLensRoutes
     {
         app.MapGet("/api/wildlens/config", (IConfiguration config) => new {
             provider = "Meta Model API", visionModel = WildLensMeta.Spark(config), imageModel = WildLensMeta.ImageModel(config), segmentationModel = WildLensMeta.Sam(config),
-            liveReady = WildLensMeta.Ready(config), keyConfigured = WildLensMeta.KeyPresent(config), creditConfirmed = config.GetValue<bool>("WildLens:CreditConfirmed"),
+            liveReady = WildLensMeta.Ready(config), keyConfigured = WildLensMeta.KeyPresent(config), creditConfirmed = config.GetValue<bool>("WildLens:CreditConfirmed"), archiveEnabled = config.GetValue<bool>("Archive:Enabled"),
             paidRequestsEnabled = config.GetValue<bool>("WildLens:EnablePaidRequests"), promptVersion = WildLensMeta.PromptVersion,
             memoryGuidanceVersion = WildLensMeta.MemoryGuidanceVersion,
             styles = WildLensMeta.Styles, moods = WildLensMeta.Moods,
             notice = "Analysis uses Spark and optionally SAM; each Generate makes one Muse Image request. No automatic retries."
         });
         app.MapPost("/api/wildlens/analyze", (WildLensInput input, WildLensMeta meta, CancellationToken token) => Execute(() => meta.InspectAsync(input, token), token)).RequireRateLimiting("matching");
-        app.MapPost("/api/wildlens/generate", (WildLensRenderInput input, WildLensMeta meta, CancellationToken token) => Execute(() => meta.RenderAsync(input, token), token)).RequireRateLimiting("matching");
+        app.MapPost("/api/wildlens/generate", (WildLensRenderInput input, WildLensMeta meta, CardArchive archive, CancellationToken token) => Execute(async () => {
+            var artwork = await meta.RenderAsync(input, token);
+            return archive.Enabled ? artwork with { ArchiveToken = archive.Issue() } : artwork;
+        }, token)).RequireRateLimiting("matching");
+        app.MapPost("/api/wildlens/cards", async (CardUpload input, CardArchive archive, CancellationToken token) => {
+            try { return Results.Json(await archive.SaveAsync(input, token)); }
+            catch (ArchiveIssue issue) { return Results.Json(new ApiError(issue.Code, issue.Message), statusCode: issue.Status); }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) {
+                return Results.Json(new ApiError("archive_unavailable", "The server copy could not be saved. Your portrait is still available to download."), statusCode: 503);
+            }
+        }).RequireRateLimiting("card-archive");
     }
     private static async Task<IResult> Execute<T>(Func<Task<T>> action, CancellationToken token)
     {
